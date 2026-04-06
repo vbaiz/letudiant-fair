@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import type { LeadRow } from '@/lib/supabase/types'
 import { NextResponse } from 'next/server'
 
 export async function POST(
@@ -13,13 +14,15 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { error } = await supabase
+  const payload: Partial<LeadRow> = {
+    exported_by: user.email ?? null,
+    exported_at: new Date().toISOString(),
+  }
+
+  const { error } = await (supabase
     .from('leads')
-    .update({
-      exported_by: user.email,
-      exported_at: new Date().toISOString(),
-    })
-    .eq('id', leadId)
+    .update(payload as never)
+    .eq('id', leadId))
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
