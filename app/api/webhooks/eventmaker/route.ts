@@ -1,88 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  query,
-  where,
-  addDoc,
-  doc,
-  updateDoc,
-} from 'firebase/firestore'
-import app from '@/lib/firebase/config'
+import { createServiceClient } from '@/lib/supabase/server'
 import { computeReconciliationConfidence, type EventMakerRegistration } from '@/lib/identity/reconcile'
-
-const db = getFirestore(app)
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as EventMakerRegistration
+    const supabase = await createServiceClient()
 
-    // Search for existing user by email
-    const usersRef = collection(db, 'users')
-    const emailQuery = query(usersRef, where('profile.email', '==', body.email.toLowerCase()))
-    const emailSnap = await getDocs(emailQuery)
+    // 1. Exact email match
+    const { data: emailMatch } = await supabase
+      .from('users')
+      .select('id, eventmaker_ids')
+      .eq('email', body.email.toLowerCase())
+      .maybeSingle()
 
-    if (!emailSnap.empty) {
-      // Exact email match — link EventMaker ID
-      const existingUser = emailSnap.docs[0]
-      const currentIds: string[] = existingUser.data().identity?.eventMakerIds ?? []
+    if (emailMatch) {
+      const currentIds: string[] = emailMatch.eventmaker_ids ?? []
       if (!currentIds.includes(body.fairId)) {
-        await updateDoc(doc(db, 'users', existingUser.id), {
-          'identity.eventMakerIds': [...currentIds, body.fairId],
-        })
+        await supabase
+          .from('users')
+          .update({ eventmaker_ids: [...currentIds, body.fairId] })
+          .eq('id', emailMatch.id)
       }
-      return NextResponse.json({ matched: true, uid: existingUser.id, confidence: 1.0 })
+      return NextResponse.json({ matched: true, uid: emailMatch.id, confidence: 1.0 })
     }
 
-    // Fuzzy match — check name + dob
-    let bestMatch = { confidence: 0, uid: '' }
-    const allUsersSnap = await getDocs(usersRef)
+    // 2. Fuzzy match — scan all users (acceptable for MVP pilot scale)
+    const { data: allUsers } = await supabase
+      .from('users')
+      .select('id, email, name, dob, eventmaker_ids')
 
-    for (const userDoc of allUsersSnap.docs) {
-      const user = userDoc.data()
+    let bestMatch = { confidence: 0, uid: '' }
+
+    for (const user of allUsers ?? []) {
       const result = computeReconciliationConfidence(body, {
-        email: user.profile?.email,
-        phone: user.profile?.phone,
-        name: user.profile?.name,
-        dob: user.profile?.dob,
+        email: user.email,
+        name: user.name,
+        dob: user.dob ?? undefined,
       })
       if (result.confidence > bestMatch.confidence) {
-        bestMatch = { confidence: result.confidence, uid: userDoc.id }
+        bestMatch = { confidence: result.confidence, uid: user.id }
       }
     }
 
     if (bestMatch.confidence >= 0.85) {
-      // Good fuzzy match
-      await updateDoc(doc(db, 'users', bestMatch.uid), {
-        'identity.eventMakerIds': [body.fairId],
-        'identity.reconciliationConfidence': bestMatch.confidence,
-        'identity.pendingReview': bestMatch.confidence < 0.95,
-      })
+      await supabase
+        .from('users')
+        .update({ eventmaker_ids: [body.fairId] })
+        .eq('id', bestMatch.uid)
       return NextResponse.json({ matched: true, uid: bestMatch.uid, confidence: bestMatch.confidence })
     }
 
-    // No match — create provisional profile
-    const newUser = await addDoc(collection(db, 'users'), {
-      profile: {
-        name: `${body.firstName} ${body.lastName}`,
-        email: body.email.toLowerCase(),
-      },
-      identity: {
-        eventMakerIds: [body.fairId],
-        isMinor: false,
-        reconciliationConfidence: 0,
-        provisional: true,
-      },
-      orientationScore: {
-        stage: 'exploring',
-        scoreValue: 0,
-        lastUpdated: new Date().toISOString(),
-      },
-      role: 'student',
+    // 3. No match — create a provisional Supabase Auth user + profile
+    const { data: newAuthUser, error: authError } = await supabase.auth.admin.createUser({
+      email: body.email.toLowerCase(),
+      email_confirm: true,
+      user_metadata: { name: `${body.firstName} ${body.lastName}`, provisional: true },
     })
 
-    return NextResponse.json({ matched: false, uid: newUser.id, provisional: true })
+    if (authError || !newAuthUser.user) {
+      return NextResponse.json({ error: 'Could not create user' }, { status: 500 })
+    }
+
+    await supabase.from('users').insert({
+      id: newAuthUser.user.id,
+      email: body.email.toLowerCase(),
+      name: `${body.firstName} ${body.lastName}`,
+      role: 'student',
+      eventmaker_ids: [body.fairId],
+      orientation_stage: 'exploring',
+      orientation_score: 0,
+    })
+
+    return NextResponse.json({ matched: false, uid: newAuthUser.user.id, provisional: true })
   } catch (error) {
     console.error('EventMaker webhook error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -1,246 +1,122 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Logo from "@/components/ui/Logo";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-
-function IconGoogle() {
-  return (
-    <svg
-      width={18}
-      height={18}
-      viewBox="0 0 18 18"
-      aria-hidden="true"
-    >
-      <path
-        d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"
-        fill="#4285F4"
-      />
-      <path
-        d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"
-        fill="#34A853"
-      />
-      <path
-        d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"
-        fill="#EA4335"
-      />
-    </svg>
-  );
-}
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { signInWithEmail, signInWithGoogle } from '@/lib/supabase/auth'
+import Logo from '@/components/ui/Logo'
+import StripeRule from '@/components/ui/StripeRule'
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    // Mock: call /api/auth/login — redirect to student home for now
+  async function handleEmailLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      router.push("/student/home");
-    } catch {
-      setError("Une erreur est survenue. Veuillez réessayer.");
+      await signInWithEmail(email, password)
+      router.push('/student/home')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erreur de connexion')
     } finally {
-      setLoading(false);
+      setLoading(false)
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setLoading(true)
+    try {
+      await signInWithGoogle()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erreur de connexion Google')
+      setLoading(false)
     }
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#ffffff",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-      }}
-    >
-      {/* Card */}
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          background: "#ffffff",
-          borderRadius: "12px",
-          border: "1px solid #E8E8E8",
-          padding: "40px 36px",
-          boxShadow: "0 4px 24px rgba(26,26,26,0.07)",
-        }}
-      >
-        {/* Logo */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: "32px",
-          }}
-        >
-          <Logo variant="default" size="md" />
-        </div>
-
-        {/* Title */}
-        <h1
-          className="le-h2"
-          style={{ textAlign: "center", marginBottom: "8px" }}
-        >
-          Se connecter
-        </h1>
-        <p
-          className="le-body"
-          style={{ textAlign: "center", marginBottom: "32px" }}
-        >
-          Accédez à votre espace salon
-        </p>
-
-        {/* Error */}
-        {error && (
-          <div
-            role="alert"
-            style={{
-              background: "#FDEAEA",
-              border: "1px solid #E3001B",
-              borderRadius: "6px",
-              padding: "10px 14px",
-              marginBottom: "20px",
-              fontSize: "14px",
-              color: "#B0001A",
-              fontWeight: 500,
-            }}
-          >
-            {error}
+    <div className="min-h-screen bg-white flex flex-col">
+      <StripeRule />
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-sm">
+          <div className="flex justify-center mb-8">
+            <Logo size="lg" />
           </div>
-        )}
+          <h1 className="text-2xl font-bold text-le-gray-900 text-center mb-2">
+            Bienvenue
+          </h1>
+          <p className="text-le-gray-500 text-center mb-8 text-sm">
+            Connectez-vous à votre espace salon
+          </p>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} noValidate>
-          <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-            <Input
-              id="email"
-              type="email"
-              label="Adresse email"
-              placeholder="vous@exemple.fr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <Input
-              id="password"
-              type="password"
-              label="Mot de passe"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 border border-le-gray-200 rounded-xl px-4 py-3 text-le-gray-700 font-medium hover:bg-le-gray-50 transition-colors mb-6"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Continuer avec Google
+          </button>
 
-            <div style={{ textAlign: "right" }}>
-              <a
-                href="/forgot-password"
-                style={{
-                  fontSize: "13px",
-                  color: "#E3001B",
-                  textDecoration: "none",
-                  fontWeight: 500,
-                }}
-              >
-                Mot de passe oublié ?
-              </a>
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-le-gray-100" />
             </div>
-
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? "Connexion…" : "Se connecter"}
-            </Button>
+            <div className="relative flex justify-center text-xs text-le-gray-400 bg-white px-2">
+              ou avec votre email
+            </div>
           </div>
-        </form>
 
-        {/* Divider */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            margin: "24px 0",
-          }}
-        >
-          <div
-            style={{ flex: 1, height: "1px", background: "#E8E8E8" }}
-            aria-hidden="true"
-          />
-          <span
-            style={{ fontSize: "12px", color: "#6B6B6B", whiteSpace: "nowrap" }}
-          >
-            ou continuer avec
-          </span>
-          <div
-            style={{ flex: 1, height: "1px", background: "#E8E8E8" }}
-            aria-hidden="true"
-          />
-        </div>
-
-        {/* Google button */}
-        <button
-          type="button"
-          className="le-btn-base le-btn-ghost"
-          style={{ width: "100%", gap: "10px" }}
-        >
-          <IconGoogle />
-          Continuer avec Google
-        </button>
-
-        {/* Links */}
-        <div
-          style={{
-            marginTop: "28px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-            textAlign: "center",
-          }}
-        >
-          <p style={{ fontSize: "14px", color: "#3D3D3D" }}>
-            Pas encore de compte ?{" "}
-            <a
-              href="/register"
-              style={{
-                color: "#E3001B",
-                fontWeight: 600,
-                textDecoration: "none",
-              }}
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-le-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                className="w-full border border-le-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-le-red"
+                placeholder="prenom.nom@email.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-le-gray-700 mb-1">Mot de passe</label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                className="w-full border border-le-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-le-red"
+                placeholder="••••••••"
+              />
+            </div>
+            {error && (
+              <p className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full py-3 rounded-xl font-semibold disabled:opacity-50"
             >
-              S&apos;inscrire
+              {loading ? 'Connexion...' : 'Se connecter'}
+            </button>
+          </form>
+
+          <p className="text-center text-sm text-le-gray-500 mt-6">
+            Pas encore de compte ?{' '}
+            <a href="/onboarding" className="text-le-red font-medium hover:underline">
+              Créer mon espace
             </a>
           </p>
-          <a
-            href="/exhibitor/login"
-            style={{
-              fontSize: "13px",
-              color: "#6B6B6B",
-              textDecoration: "none",
-            }}
-          >
-            Accès établissement →
-          </a>
         </div>
       </div>
     </div>
-  );
+  )
 }

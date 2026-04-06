@@ -1,32 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getFirestore, collection, addDoc } from 'firebase/firestore'
-import app from '@/lib/firebase/config'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 
-const db = getFirestore(app)
+export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { userId, eventId, standId, sessionId, channel } = body
-
-    if (!userId || !eventId || !channel) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
-
-    const scan = {
-      userId,
-      eventId,
-      standId: standId ?? null,
-      sessionId: sessionId ?? null,
-      channel,
-      timestamp: new Date().toISOString(),
-      dwellEstimate: null,
-    }
-
-    const ref = await addDoc(collection(db, 'scans'), scan)
-    return NextResponse.json({ scanId: ref.id, success: true })
-  } catch (error) {
-    console.error('Scan POST error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const body = await request.json()
+  const { eventId, standId, sessionId, channel, dwellEstimate } = body
+
+  const { data, error } = await supabase
+    .from('scans')
+    .insert({
+      user_id: user.id,
+      event_id: eventId,
+      stand_id: standId ?? null,
+      session_id: sessionId ?? null,
+      channel,
+      dwell_estimate: dwellEstimate ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ scanId: data.id })
 }
