@@ -1,4 +1,5 @@
 'use client'
+export const dynamic = 'force-dynamic'
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useAuth } from '@/hooks/useAuth'
