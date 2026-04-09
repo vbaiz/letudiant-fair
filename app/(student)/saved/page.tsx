@@ -1,10 +1,14 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import SectionLabel from '@/components/ui/SectionLabel';
 import StripeRule from '@/components/ui/StripeRule';
+import { getAppointmentsForStudent } from '@/lib/supabase/database';
+import { useAuth } from '@/hooks/useAuth';
+import type { AppointmentRow } from '@/lib/supabase/types';
 
 // ─── Mock data ───────────────────────────────────────────────────────────────
 
@@ -411,7 +415,17 @@ const TABS: { id: TabId; label: string; count: number }[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SavedPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('documents');
+  const [appointments, setAppointments] = useState<(AppointmentRow & { schools?: { name: string; city: string; type: string } })[]>([]);
+
+  // Paris event ID — in production this would come from context/URL
+  const PARIS_EVENT_ID = 'a1b2c3d4-0000-0000-0000-000000000001';
+
+  useEffect(() => {
+    if (!user) return;
+    getAppointmentsForStudent(user.id, PARIS_EVENT_ID).then(setAppointments);
+  }, [user]);
 
   return (
     <div className="page-with-nav" style={{ background: 'var(--le-gray-100)', minHeight: '100vh' }}>
@@ -528,8 +542,34 @@ export default function SavedPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <SectionLabel>Rendez-vous pris au salon</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-              {APPOINTMENTS.map((appt) => (
-                <AppointmentCard key={appt.id} appt={appt} />
+              {appointments.length === 0 ? (
+                <p style={{ color: 'var(--le-gray-500)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>
+                  Aucun rendez-vous pris pour ce salon.
+                </p>
+              ) : appointments.map((appt) => (
+                <div key={appt.id} className="le-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <strong style={{ fontSize: 15 }}>{(appt as { schools?: { name: string } }).schools?.name ?? 'École'}</strong>
+                    <span style={{
+                      background: appt.status === 'confirmed' ? 'var(--le-blue-light)' : 'var(--le-yellow-light)',
+                      color: appt.status === 'confirmed' ? 'var(--le-blue)' : '#7a5c00',
+                      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                    }}>
+                      {appt.status === 'confirmed' ? 'Confirmé' : appt.status === 'pending' ? 'En attente' : appt.status}
+                    </span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 13, color: 'var(--le-gray-500)' }}>
+                    {new Date(appt.slot_time).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    {' · '}
+                    {new Date(appt.slot_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    {' · '}{appt.slot_duration} min
+                  </p>
+                  {appt.student_notes && (
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--le-gray-700)', fontStyle: 'italic' }}>
+                      &ldquo;{appt.student_notes}&rdquo;
+                    </p>
+                  )}
+                </div>
               ))}
             </div>
             <div

@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>L'Étudiant Salons — Architecture Map</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f1117;
+    color: #e8e8e8;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 32px 24px 64px;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header-stripe {
+    height: 5px;
+    background: linear-gradient(90deg, #E3001B 60%, #003C8F 60% 80%, #FFD100 80%);
+    border-radius: 3px;
+    margin: 0 auto 24px;
+    width: 200px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .header p {
+    color: #888;
+    font-size: 14px;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 48px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 20px;
+    padding: 4px 12px 4px 8px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* ── Main layout ── */
+  .diagram {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* ── Row layouts ── */
+  .row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .row + .row { margin-top: 0; }
+
+  /* ── Arrow connector ── */
+  .arrow-down {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 36px;
+    color: #444;
+    font-size: 20px;
+    position: relative;
+  }
+  .arrow-down::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 24px;
+    background: linear-gradient(to bottom, #444, #666);
+  }
+  .arrow-down::after {
+    content: '▼';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #666;
+    font-size: 10px;
+  }
+
+  .arrow-split {
+    display: flex;
+    justify-content: center;
+    height: 40px;
+    position: relative;
+  }
+  .arrow-split svg {
+    overflow: visible;
+  }
+
+  /* ── Zone cards ── */
+  .zone {
+    border-radius: 14px;
+    border: 1.5px solid;
+    overflow: hidden;
+    min-width: 0;
+    flex: 1;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .zone:hover {
+    transform: translateY(-2px);
+  }
+  .zone-header {
+    padding: 10px 16px 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .zone-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+  .zone-title {
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+  .zone-subtitle {
+    font-size: 11px;
+    opacity: 0.65;
+    font-weight: 400;
+    margin-top: 1px;
+  }
+  .zone-body {
+    padding: 12px 14px 14px;
+    background: #0f1117;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* ── Page pills ── */
+  .page-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .page-group-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #555;
+    margin-bottom: 2px;
+    padding-left: 2px;
+  }
+  .page {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: #1a1d27;
+    border: 1px solid #252837;
+    border-radius: 8px;
+    padding: 7px 10px;
+    cursor: default;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+  .page:hover {
+    background: #1e2133;
+  }
+  .page-path {
+    font-family: 'Consolas', 'Fira Code', monospace;
+    font-size: 11.5px;
+    color: #c8c8e8;
+    flex: 1;
+    min-width: 0;
+  }
+  .page-desc {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .page-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .badge-live   { background: #1a3a1a; color: #4caf50; border: 1px solid #2a5a2a; }
+  .badge-stub   { background: #3a2a10; color: #ff9800; border: 1px solid #5a3a10; }
+  .badge-mock   { background: #3a1a1a; color: #ff5722; border: 1px solid #5a2a2a; }
+  .badge-api    { background: #1a2a3a; color: #2196f3; border: 1px solid #1a3a5a; }
+  .badge-wip    { background: #2a1a3a; color: #9c27b0; border: 1px solid #3a1a5a; }
+
+  /* ── Zone color variants ── */
+  /* Public */
+  .zone-public  { border-color: #444; }
+  .zone-public .zone-header { background: #1e1e1e; }
+  .zone-public .zone-title  { color: #ccc; }
+
+  /* Auth */
+  .zone-auth    { border-color: #3a3a5a; }
+  .zone-auth .zone-header { background: #1a1a2e; }
+  .zone-auth .zone-title  { color: #9fa8da; }
+  .zone-auth:hover { box-shadow: 0 8px 32px rgba(63,81,181,0.2); }
+
+  /* Student */
+  .zone-student { border-color: #5a1a1a; }
+  .zone-student .zone-header { background: #1e0a0a; }
+  .zone-student .zone-title  { color: #E3001B; }
+  .zone-student:hover { box-shadow: 0 8px 32px rgba(227,0,27,0.2); }
+
+  /* Exhibitor */
+  .zone-exhibitor { border-color: #1a2a5a; }
+  .zone-exhibitor .zone-header { background: #0a0e1e; }
+  .zone-exhibitor .zone-title  { color: #5c8fff; }
+  .zone-exhibitor:hover { box-shadow: 0 8px 32px rgba(0,60,143,0.25); }
+
+  /* Teacher */
+  .zone-teacher { border-color: #4a3a00; }
+  .zone-teacher .zone-header { background: #1a1400; }
+  .zone-teacher .zone-title  { color: #FFD100; }
+  .zone-teacher:hover { box-shadow: 0 8px 32px rgba(255,209,0,0.15); }
+
+  /* Parent */
+  .zone-parent { border-color: #0a3a3a; }
+  .zone-parent .zone-header { background: #061818; }
+  .zone-parent .zone-title  { color: #26c6da; }
+  .zone-parent:hover { box-shadow: 0 8px 32px rgba(38,198,218,0.15); }
+
+  /* Admin */
+  .zone-admin { border-color: #3a1a5a; }
+  .zone-admin .zone-header { background: #150a20; }
+  .zone-admin .zone-title  { color: #ce93d8; }
+  .zone-admin:hover { box-shadow: 0 8px 32px rgba(156,39,176,0.2); }
+
+  /* API */
+  .zone-api { border-color: #1a3a2a; }
+  .zone-api .zone-header { background: #081410; }
+  .zone-api .zone-title  { color: #66bb6a; }
+  .zone-api:hover { box-shadow: 0 8px 32px rgba(76,175,80,0.15); }
+
+  /* Lib */
+  .zone-lib { border-color: #2a2a2a; }
+  .zone-lib .zone-header { background: #141414; }
+  .zone-lib .zone-title  { color: #aaa; }
+
+  /* DB */
+  .zone-db { border-color: #2a1a0a; }
+  .zone-db .zone-header { background: #120a00; }
+  .zone-db .zone-title  { color: #ff9800; }
+  .zone-db:hover { box-shadow: 0 8px 32px rgba(255,152,0,0.15); }
+
+  /* ── Connector lines between zones ── */
+  .connectors {
+    position: relative;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .connectors svg {
+    width: 100%;
+    max-width: 1280px;
+    height: 48px;
+    overflow: visible;
+  }
+
+  /* ── Flow label ── */
+  .flow-row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin: 20px 0 8px;
+  }
+  .flow-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .flow-label::before {
+    content: '──';
+    font-size: 14px;
+  }
+
+  /* ── Section divider ── */
+  .section-divider {
+    text-align: center;
+    margin: 24px 0 20px;
+    position: relative;
+  }
+  .section-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #2a2d3a 20%, #2a2d3a 80%, transparent);
+  }
+  .section-divider span {
+    position: relative;
+    background: #0f1117;
+    padding: 0 16px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #444;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── Hook / lib pills ── */
+  .lib-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
+  }
+  .lib-card {
+    background: #1a1d27;
+    border: 1px solid #252837;
+    border-radius: 8px;
+    padding: 10px 12px;
+    transition: border-color 0.15s;
+  }
+  .lib-card:hover { border-color: #3a3d50; }
+  .lib-card-title {
+    font-family: 'Consolas', 'Fira Code', monospace;
+    font-size: 11px;
+    color: #c8c8e8;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .lib-card-desc {
+    font-size: 11px;
+    color: #555;
+    line-height: 1.4;
+  }
+
+  /* ── DB table pills ── */
+  .db-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .db-table {
+    background: #1a1400;
+    border: 1px solid #3a2800;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: 'Consolas', 'Fira Code', monospace;
+    font-size: 11px;
+    color: #ff9800;
+  }
+
+  /* ── Navigation flow annotation ── */
+  .nav-flow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    background: #141720;
+    border: 1px dashed #2a2d3a;
+    border-radius: 8px;
+    margin-top: 4px;
+  }
+  .nav-step {
+    font-family: 'Consolas', monospace;
+    font-size: 10.5px;
+    color: #888;
+    background: #1e2133;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .nav-arrow {
+    color: #444;
+    font-size: 11px;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    margin-top: 48px;
+    color: #333;
+    font-size: 12px;
+  }
+  .footer .stripe {
+    height: 3px;
+    background: linear-gradient(90deg, #E3001B 60%, #003C8F 60% 80%, #FFD100 80%);
+    border-radius: 2px;
+    width: 80px;
+    margin: 0 auto 12px;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .row { flex-direction: column; }
+    .zone { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ HEADER ══════════════════ -->
+<div class="header">
+  <div class="header-stripe"></div>
+  <h1>L'Étudiant Salons — Architecture Map</h1>
+  <p>Next.js 16.2.2 App Router · Supabase · TypeScript · PWA &nbsp;|&nbsp; Last updated: April 2026</p>
+</div>
+
+<!-- ══════════════════ LEGEND ══════════════════ -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#888"></div> Public</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#9fa8da"></div> Auth</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#E3001B"></div> Student</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#5c8fff"></div> Exhibitor</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#FFD100"></div> Teacher</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#26c6da"></div> Parent</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ce93d8"></div> Admin</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#66bb6a"></div> API Routes</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff9800"></div> Database</div>
+  <div class="legend-item"><span class="page-badge badge-live" style="font-size:9px">LIVE</span> Wired to DB</div>
+  <div class="legend-item"><span class="page-badge badge-stub" style="font-size:9px">STUB</span> UI only / mock data</div>
+  <div class="legend-item"><span class="page-badge badge-wip" style="font-size:9px">WIP</span> Needs wiring</div>
+</div>
+
+<div class="diagram">
+
+  <!-- ══════════════════ ROW 1 — PUBLIC ENTRY ══════════════════ -->
+  <div class="row">
+    <div class="zone zone-public" style="max-width:520px;flex:0 0 auto;">
+      <div class="zone-header">
+        <span class="zone-icon">🌐</span>
+        <div>
+          <div class="zone-title">Public Entry</div>
+          <div class="zone-subtitle">Accessible without authentication</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div class="page">
+          <div>
+            <div class="page-path">/</div>
+            <div class="page-desc">Landing page — role selector (Étudiant / Enseignant / Parent). Entry point for all users.</div>
+          </div>
+          <span class="page-badge badge-live">LIVE</span>
+        </div>
+        <!-- Main user flows from landing -->
+        <div class="nav-flow">
+          <span class="nav-step">/</span>
+          <span class="nav-arrow">→</span>
+          <span class="nav-step">/onboarding?role=student</span>
+          <span class="nav-arrow">→</span>
+          <span class="nav-step">/home</span>
+          <span class="nav-arrow" style="color:#E3001B">★ main student flow</span>
+        </div>
+        <div class="nav-flow">
+          <span class="nav-step">/</span>
+          <span class="nav-arrow">→</span>
+          <span class="nav-step">/login</span>
+          <span class="nav-arrow">→</span>
+          <span class="nav-step">role-based redirect</span>
+        </div>
+        <div class="nav-flow">
+          <span class="nav-step">/</span>
+          <span class="nav-arrow">→</span>
+          <span class="nav-step">/exhibitor/login</span>
+          <span class="nav-arrow" style="color:#ff5722">⚠ 404 — page missing</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down" style="margin:4px 0"></div>
+
+  <!-- ══════════════════ ROW 2 — AUTH ZONE ══════════════════ -->
+  <div class="row">
+    <div class="zone zone-auth" style="max-width:740px;">
+      <div class="zone-header">
+        <span class="zone-icon">🔐</span>
+        <div>
+          <div class="zone-title">Authentication &amp; Onboarding</div>
+          <div class="zone-subtitle">app/(auth)/ · app/onboarding/ · proxy.ts (middleware)</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div class="page">
+            <div>
+              <div class="page-path">/login</div>
+              <div class="page-desc">Email + Google OAuth. Redirects by role after login.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+          <div class="page">
+            <div>
+              <div class="page-path">/onboarding</div>
+              <div class="page-desc">Main sign-up: DOB → role → interests → GDPR consent → Supabase upsert.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+          <div class="page">
+            <div>
+              <div class="page-path">/register</div>
+              <div class="page-desc">Alt registration page (mostly superseded by /onboarding).</div>
+            </div>
+            <span class="page-badge badge-stub">STUB</span>
+          </div>
+          <div class="page">
+            <div>
+              <div class="page-path">/group-invite/[token]</div>
+              <div class="page-desc">Teacher invite link. Joins student to a class group via invite token.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+        </div>
+        <div class="page" style="margin-top:2px;">
+          <div>
+            <div class="page-path">proxy.ts <span style="color:#555;font-family:sans-serif;font-size:10px;margin-left:6px">(Next.js 16 middleware)</span></div>
+            <div class="page-desc">Runs on every request. Refreshes Supabase session cookie. Guards protected routes → redirects unauthenticated users to /login.</div>
+          </div>
+          <span class="page-badge badge-live">LIVE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down" style="margin:4px 0"></div>
+
+  <div class="section-divider"><span>authenticated zones — role-based routing</span></div>
+
+  <!-- ══════════════════ ROW 3 — STUDENT (full width) ══════════════════ -->
+  <div class="row">
+    <div class="zone zone-student">
+      <div class="zone-header">
+        <span class="zone-icon">🎓</span>
+        <div>
+          <div class="zone-title">Student Zone</div>
+          <div class="zone-subtitle">app/(student)/ · StudentBottomNav (5 tabs: Home · Discover · QR · Schools · Profile)</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;">
+
+          <div class="page">
+            <div>
+              <div class="page-path">/home</div>
+              <div class="page-desc">Dashboard. Upcoming fairs, orientation badge, suggested schools, events list.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/discover</div>
+              <div class="page-desc">Swipe deck (react-tinder-card). School cards à la Tinder. Swipe right = like.</div>
+            </div>
+            <span class="page-badge badge-wip">WIP</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/qr</div>
+              <div class="page-desc">Personal QR code generated from uid. Shown to stand scanners. Offline-capable.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/schools</div>
+              <div class="page-desc">All schools list. Filter/search needed. Navigates to school detail.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/schools/[schoolId]</div>
+              <div class="page-desc">School profile: info, formations, stats, like/save actions. Appointment booking stub.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/compare</div>
+              <div class="page-desc">Side-by-side comparison of up to 3 schools. Data from Supabase.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/saved</div>
+              <div class="page-desc">Bookmarked / matched schools. Needs wiring to getMatchesForStudent().</div>
+            </div>
+            <span class="page-badge badge-wip">WIP</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/profile</div>
+              <div class="page-desc">Interests, consent management, orientation score progress.</div>
+            </div>
+            <span class="page-badge badge-stub">STUB</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/fair/[eventId]</div>
+              <div class="page-desc">Fair overview, schedule, SVG venue map with stand zones.</div>
+            </div>
+            <span class="page-badge badge-stub">STUB</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/fair/[eventId]/scan</div>
+              <div class="page-desc">Camera QR scanner (html5-qrcode). Decodes stand/session ID → POST /api/scans.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/recap/[eventId]</div>
+              <div class="page-desc">Post-fair journey timeline from real scan data. WAX email trigger. Needs building.</div>
+            </div>
+            <span class="page-badge badge-wip">WIP</span>
+          </div>
+
+          <div class="page">
+            <div>
+              <div class="page-path">/virtual</div>
+              <div class="page-desc">Virtual fair experience placeholder.</div>
+            </div>
+            <span class="page-badge badge-stub">STUB</span>
+          </div>
+
+        </div>
+
+        <!-- Student navigation flow -->
+        <div class="nav-flow">
+          <span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Main student journey →</span>
+          <span class="nav-step">/home</span><span class="nav-arrow">→</span>
+          <span class="nav-step">/fair/[id]/scan</span><span class="nav-arrow">→</span>
+          <span class="nav-step">/discover</span><span class="nav-arrow">→</span>
+          <span class="nav-step">/schools/[id]</span><span class="nav-arrow">→</span>
+          <span class="nav-step">/compare</span><span class="nav-arrow">→</span>
+          <span class="nav-step">/recap/[id]</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down" style="margin:4px 0"></div>
+
+  <!-- ══════════════════ ROW 4 — PORTALS (4 columns) ══════════════════ -->
+  <div class="row" style="align-items:stretch;">
+
+    <!-- Exhibitor -->
+    <div class="zone zone-exhibitor">
+      <div class="zone-header">
+        <span class="zone-icon">🏫</span>
+        <div>
+          <div class="zone-title">Exhibitor</div>
+          <div class="zone-subtitle">app/exhibitor/ · ExhibitorSideNav</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div class="page">
+          <div>
+            <div class="page-path">/exhibitor/dashboard</div>
+            <div class="page-desc">KPI cards: scans, matches, appointments.</div>
+          </div>
+          <span class="page-badge badge-stub">STUB</span>
+        </div>
+        <div class="page">
+          <div>
+            <div class="page-path">/exhibitor/leads</div>
+            <div class="page-desc">Scored lead feed. Anonymized → reveal on export. CSV download.</div>
+          </div>
+          <span class="page-badge badge-live">LIVE</span>
+        </div>
+        <div class="page">
+          <div>
+            <div class="page-path">/exhibitor/profile</div>
+            <div class="page-desc">Edit school card, upload reel.</div>
+          </div>
+          <span class="page-badge badge-stub">STUB</span>
+        </div>
+        <div class="page">
+          <div>
+            <div class="page-path">/exhibitor/virtual</div>
+            <div class="page-desc">Virtual booth.</div>
+          </div>
+          <span class="page-badge badge-stub">STUB</span>
+        </div>
+        <div class="page" style="border-color:#5a2a2a">
+          <div>
+            <div class="page-path" style="color:#ff6b6b">/exhibitor/login</div>
+            <div class="page-desc">Missing — landing links here. Needs creation.</div>
+          </div>
+          <span class="page-badge badge-mock">MISSING</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Teacher -->
+    <div class="zone zone-teacher">
+      <div class="zone-header">
+        <span class="zone-icon">👨‍🏫</span>
+        <div>
+          <div class="zone-title">Teacher</div>
+          <div class="zone-subtitle">app/teacher/ · TeacherSideNav</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div class="page">
+          <div>
+            <div class="page-path">/teacher/dashboard</div>
+            <div class="page-desc">Group overview. Create group, generate invite link.</div>
+          </div>
+          <span class="page-badge badge-live">LIVE</span>
+        </div>
+        <div class="page">
+          <div>
+            <div class="page-path">/teacher/group</div>
+            <div class="page-desc">Group detail + shareable invite link.</div>
+          </div>
+          <span class="page-badge badge-live">LIVE</span>
+        </div>
+        <div class="page">
+          <div>
+            <div class="page-path">/teacher/students</div>
+            <div class="page-desc">Student roster + per-student scan count. Needs real data wiring.</div>
+          </div>
+          <span class="page-badge badge-wip">WIP</span>
+        </div>
+        <div class="page">
+          <div>
+            <div class="page-path">/teacher/insights</div>
+            <div class="page-desc">Class engagement analytics chart.</div>
+          </div>
+          <span class="page-badge badge-wip">WIP</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parent -->
+    <div class="zone zone-parent">
+      <div class="zone-header">
+        <span class="zone-icon">👨‍👩‍👧</span>
+        <div>
+          <div class="zone-title">Parent</div>
+          <div class="zone-subtitle">app/parent/</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div class="page">
+          <div>
+            <div class="page-path">/parent/home</div>
+            <div class="page-desc">Child's activity overview: schools visited, orientation score.</div>
+          </div>
+          <span class="page-badge badge-wip">WIP</span>
+        </div>
+        <div class="page">
+          <div>
+            <div class="page-path">/parent/orientation</div>
+            <div class="page-desc">Child's orientation stage + school recommendations.</div>
+          </div>
+          <span class="page-badge badge-wip">WIP</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin -->
+    <div class="zone zone-admin">
+      <div class="zone-header">
+        <span class="zone-icon">⚙️</span>
+        <div>
+          <div class="zone-title">Admin</div>
+          <div class="zone-subtitle">app/admin/ · AdminSideNav</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div class="page">
+          <div>
+            <div class="page-path">/admin/dashboard</div>
+            <div class="page-desc">Aggregate KPIs: users, scans, leads, groups, orientation breakdown. Real DB queries via getAdminStats().</div>
+          </div>
+          <span class="page-badge badge-live">LIVE</span>
+        </div>
+        <div class="page" style="margin-top:2px">
+          <div>
+            <div class="page-path">not-found.tsx · error.tsx</div>
+            <div class="page-desc">Global 404 and error boundaries per zone.</div>
+          </div>
+          <span class="page-badge badge-live">LIVE</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="arrow-down" style="margin:4px 0"></div>
+
+  <!-- ══════════════════ ROW 5 — API ROUTES ══════════════════ -->
+  <div class="row">
+    <div class="zone zone-api">
+      <div class="zone-header">
+        <span class="zone-icon">⚡</span>
+        <div>
+          <div class="zone-title">API Routes</div>
+          <div class="zone-subtitle">app/api/ · Server-side only · Supabase service role</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;">
+          <div class="page">
+            <div>
+              <div class="page-path">POST /api/scans</div>
+              <div class="page-desc">Record a QR stand/session scan. Called by the camera scanner page. Triggers lead score recomputation (pending).</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+          <div class="page">
+            <div>
+              <div class="page-path">POST /api/leads/[id]/export</div>
+              <div class="page-desc">Reveals student PII to exhibitor. Writes exported_at + exported_by to lead row.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+          <div class="page">
+            <div>
+              <div class="page-path">POST /api/leads/compute</div>
+              <div class="page-desc">Recomputes lead score for student+school pair using lib/scoring/leadScore.ts.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+          <div class="page">
+            <div>
+              <div class="page-path">GET /api/leads/export-csv</div>
+              <div class="page-desc">Bulk CSV download of all leads for a school. Used by exhibitor leads page.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+          <div class="page">
+            <div>
+              <div class="page-path">POST /api/webhooks/eventmaker</div>
+              <div class="page-desc">Receives EventMaker fair registration. Runs identity reconciliation (email match + fuzzy merge).</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+          <div class="page">
+            <div>
+              <div class="page-path">GET /api/auth/callback</div>
+              <div class="page-desc">Supabase OAuth callback handler. Exchanges code for session, sets cookies.</div>
+            </div>
+            <span class="page-badge badge-live">LIVE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down" style="margin:4px 0"></div>
+
+  <!-- ══════════════════ ROW 6 — LIBRARY ══════════════════ -->
+  <div class="row">
+    <div class="zone zone-lib" style="flex:1;">
+      <div class="zone-header">
+        <span class="zone-icon">📦</span>
+        <div>
+          <div class="zone-title">Business Logic — lib/ &amp; hooks/</div>
+          <div class="zone-subtitle">Shared across all pages and API routes</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div class="lib-grid">
+          <div class="lib-card">
+            <div class="lib-card-title">lib/supabase/client.ts</div>
+            <div class="lib-card-desc">Browser Supabase singleton. getSupabase(). Used by all client pages.</div>
+          </div>
+          <div class="lib-card">
+            <div class="lib-card-title">lib/supabase/server.ts</div>
+            <div class="lib-card-desc">Server-side client (cookies). Used by API routes and proxy.ts.</div>
+          </div>
+          <div class="lib-card">
+            <div class="lib-card-title">lib/supabase/database.ts</div>
+            <div class="lib-card-desc">All typed DB helpers: getUser, getEvents, getSchools, createScan, upsertMatch, getLeadsForSchool, getAdminStats…</div>
+          </div>
+          <div class="lib-card">
+            <div class="lib-card-title">lib/supabase/types.ts</div>
+            <div class="lib-card-desc">Full TypeScript row types: UserRow, EventRow, SchoolRow, ScanRow, LeadRow, MatchRow, GroupRow…</div>
+          </div>
+          <div class="lib-card">
+            <div class="lib-card-title">lib/scoring/leadScore.ts</div>
+            <div class="lib-card-desc">Deterministic 0–100 score. 50% declarative (field/level match) + 50% behavioural (scan/swipe/dwell). 3 tiers: Exploring / Comparing / Deciding.</div>
+          </div>
+          <div class="lib-card">
+            <div class="lib-card-title">lib/analytics/track.ts</div>
+            <div class="lib-card-desc">Event tracker → analytics_events table. 16 event types: swipe, scan, bookmark, page_view, reel_play…</div>
+          </div>
+          <div class="lib-card">
+            <div class="lib-card-title">lib/gdpr/consent.ts</div>
+            <div class="lib-card-desc">writeConsent, revokeConsent, cascadeDelete. Age gate (&lt;16 → parental approval). RGPD compliant.</div>
+          </div>
+          <div class="lib-card">
+            <div class="lib-card-title">lib/identity/reconcile.ts</div>
+            <div class="lib-card-desc">EventMaker webhook: exact email match + fuzzy (Levenshtein) name+DOB merge for identity deduplication.</div>
+          </div>
+          <div class="lib-card">
+            <div class="lib-card-title">hooks/useAuth.ts</div>
+            <div class="lib-card-desc">React hook. Exposes: user, profile, role, loading. Used by every protected page for auth state.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down" style="margin:4px 0"></div>
+
+  <!-- ══════════════════ ROW 7 — DATABASE ══════════════════ -->
+  <div class="row">
+    <div class="zone zone-db" style="flex:1;">
+      <div class="zone-header">
+        <span class="zone-icon">🗄️</span>
+        <div>
+          <div class="zone-title">Supabase PostgreSQL Database</div>
+          <div class="zone-subtitle">supabase/schema.sql · supabase/analytics_schema.sql · Row-Level Security pending</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div class="db-grid">
+          <div class="db-table">users</div>
+          <div class="db-table">events</div>
+          <div class="db-table">schools</div>
+          <div class="db-table">formations</div>
+          <div class="db-table">stands</div>
+          <div class="db-table">sessions</div>
+          <div class="db-table">scans</div>
+          <div class="db-table">leads</div>
+          <div class="db-table">matches</div>
+          <div class="db-table">groups</div>
+          <div class="db-table">analytics_events</div>
+          <div class="db-table" style="border-color:#5a3a00;color:#ff9800;opacity:0.5;">consent_audit ⚠ missing</div>
+        </div>
+        <div class="nav-flow" style="margin-top:8px;">
+          <span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Key relations →</span>
+          <span class="nav-step">scans.user_id → users</span>
+          <span class="nav-step">scans.stand_id → stands</span>
+          <span class="nav-step">leads.school_id → schools</span>
+          <span class="nav-step">matches.student_id → users</span>
+          <span class="nav-step">groups.teacher_id → users</span>
+          <span class="nav-step">formations.school_id → schools</span>
+          <span class="nav-step">stands.event_id → events</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-divider" style="margin-top:36px"><span>component design system</span></div>
+
+  <!-- ══════════════════ ROW 8 — UI COMPONENTS ══════════════════ -->
+  <div class="row">
+    <div class="zone zone-lib" style="flex:1;border-color:#2a2040">
+      <div class="zone-header" style="background:#100c1e">
+        <span class="zone-icon">🎨</span>
+        <div>
+          <div class="zone-title" style="color:#b39ddb">Design System — components/</div>
+          <div class="zone-subtitle">Saguez &amp; Partners charte graphique 2024 · DM Sans · #E3001B / #003C8F / #FFD100</div>
+        </div>
+      </div>
+      <div class="zone-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+          <div>
+            <div class="page-group-label">UI Primitives — components/ui/</div>
+            <div class="page-group">
+              <div class="page"><div><div class="page-path">Logo.tsx</div><div class="page-desc">4 variants: default / inverted / dark / mono</div></div></div>
+              <div class="page"><div><div class="page-path">Button.tsx</div><div class="page-desc">primary / secondary / ghost</div></div></div>
+              <div class="page"><div><div class="page-path">Tag.tsx</div><div class="page-desc">4 color pills: red / blue / yellow / gray</div></div></div>
+              <div class="page"><div><div class="page-path">Card.tsx</div><div class="page-desc">article + school card variants</div></div></div>
+              <div class="page"><div><div class="page-path">Input.tsx</div><div class="page-desc">form-input + label</div></div></div>
+              <div class="page"><div><div class="page-path">StripeRule.tsx</div><div class="page-desc">5px tricolor stripe divider</div></div></div>
+              <div class="page"><div><div class="page-path">SectionLabel.tsx</div><div class="page-desc">uppercase label + red underline</div></div></div>
+              <div class="page"><div><div class="page-path">OrientationBadge.tsx</div><div class="page-desc">Exploring / Comparing / Deciding</div></div></div>
+              <div class="page"><div><div class="page-path">Skeleton.tsx</div><div class="page-desc">loading placeholder shimmer</div></div></div>
+              <div class="page"><div><div class="page-path">Toaster.tsx</div><div class="page-desc">toast notification system</div></div></div>
+              <div class="page"><div><div class="page-path">EmptyState.tsx</div><div class="page-desc">empty list illustrations</div></div></div>
+              <div class="page"><div><div class="page-path">Modal.tsx</div><div class="page-desc">modal overlay</div></div></div>
+            </div>
+          </div>
+          <div>
+            <div class="page-group-label">Feature Components — components/features/</div>
+            <div class="page-group">
+              <div class="page"><div><div class="page-path">ServicesBar.tsx</div><div class="page-desc">Icon bar: Formations, Actualités, Plan salon… (links are stubs)</div></div></div>
+              <div class="page" style="border-color:#3a2a10;opacity:0.6"><div><div class="page-path" style="color:#888">SwipeCard.tsx</div><div class="page-desc">Not yet extracted as component</div></div><span class="page-badge badge-stub">TODO</span></div>
+              <div class="page" style="border-color:#3a2a10;opacity:0.6"><div><div class="page-path" style="color:#888">QRDisplay.tsx</div><div class="page-desc">Not yet extracted</div></div><span class="page-badge badge-stub">TODO</span></div>
+              <div class="page" style="border-color:#3a2a10;opacity:0.6"><div><div class="page-path" style="color:#888">LeadCard.tsx</div><div class="page-desc">Not yet extracted</div></div><span class="page-badge badge-stub">TODO</span></div>
+              <div class="page" style="border-color:#3a2a10;opacity:0.6"><div><div class="page-path" style="color:#888">JourneyTimeline.tsx</div><div class="page-desc">Not yet built</div></div><span class="page-badge badge-stub">TODO</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="page-group-label">Navigation Layouts — components/layouts/</div>
+            <div class="page-group">
+              <div class="page"><div><div class="page-path">StudentBottomNav.tsx</div><div class="page-desc">5-tab mobile bottom bar. Tab labels + icons.</div></div></div>
+              <div class="page"><div><div class="page-path">ExhibitorSideNav.tsx</div><div class="page-desc">Exhibitor sidebar navigation</div></div></div>
+              <div class="page"><div><div class="page-path">TeacherSideNav.tsx</div><div class="page-desc">Teacher sidebar navigation</div></div></div>
+              <div class="page"><div><div class="page-path">AdminSideNav.tsx</div><div class="page-desc">Admin sidebar navigation</div></div></div>
+            </div>
+            <div class="page-group-label" style="margin-top:10px">PWA</div>
+            <div class="page-group">
+              <div class="page"><div><div class="page-path">PwaRegister.tsx</div><div class="page-desc">Service worker registration on mount</div></div></div>
+              <div class="page"><div><div class="page-path">public/manifest.json</div><div class="page-desc">theme_color: #E3001B · display: standalone</div></div></div>
+              <div class="page" style="border-color:#5a2a2a"><div><div class="page-path" style="color:#ff6b6b">public/icons/ ⚠</div><div class="page-desc">icon-192.png + icon-512.png still 404</div></div><span class="page-badge badge-mock">MISSING</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ FOOTER ══════════════════ -->
+<div class="footer">
+  <div class="stripe"></div>
+  <p>L'Étudiant Salons · Architecture Map · Generated April 2026</p>
+</div>
+
+</body>
+</html>

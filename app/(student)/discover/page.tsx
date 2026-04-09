@@ -1,14 +1,19 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import TinderCard from 'react-tinder-card';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import StripeRule from '@/components/ui/StripeRule';
+import { getSchools } from '@/lib/supabase/database';
+import { upsertMatch } from '@/lib/supabase/database';
+import { useAuth } from '@/hooks/useAuth';
+import type { SchoolRow } from '@/lib/supabase/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface School {
+interface SwipeCard {
   id: string;
   name: string;
   type: string;
@@ -38,60 +43,53 @@ interface Article {
   tag: 'red' | 'blue' | 'yellow' | 'gray';
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const SCHOOLS: School[] = [
-  {
-    id: 'hec',
-    name: 'HEC Paris',
-    type: 'Grande École',
-    typeVariant: 'red',
-    city: 'Jouy-en-Josas',
-    fields: ['Business', 'Management', 'Finance'],
-    gradient: 'linear-gradient(160deg, #E3001B 0%, #8B0012 100%)',
-    emoji: '🏛️',
-  },
-  {
-    id: 'polytechnique',
-    name: 'École Polytechnique',
-    type: 'Grande École',
-    typeVariant: 'blue',
-    city: 'Palaiseau',
-    fields: ['Ingénierie', 'Sciences', 'Mathématiques'],
-    gradient: 'linear-gradient(160deg, #003C8F 0%, #001A4D 100%)',
-    emoji: '⚙️',
-  },
-  {
-    id: 'sciencespo',
-    name: 'Sciences Po',
-    type: 'Grande École',
-    typeVariant: 'blue',
-    city: 'Paris',
-    fields: ['Sciences Politiques', 'Droit', 'Relations Internationales'],
-    gradient: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-    emoji: '🌍',
-  },
-  {
-    id: 'insa',
-    name: 'INSA Lyon',
-    type: "École d'ingénieurs",
-    typeVariant: 'yellow',
-    city: 'Lyon',
-    fields: ['Génie Civil', 'Informatique', 'Mécanique'],
-    gradient: 'linear-gradient(160deg, #E6A800 0%, #A07000 100%)',
-    emoji: '🔬',
-  },
-  {
-    id: 'essec',
-    name: 'ESSEC Business School',
-    type: 'Grande École',
-    typeVariant: 'red',
-    city: 'Cergy',
-    fields: ['Commerce', 'Marketing', 'Luxe'],
-    gradient: 'linear-gradient(160deg, #2d6a4f 0%, #1b4332 100%)',
-    emoji: '📊',
-  },
-];
+const SCHOOL_GRADIENTS: Record<string, string> = {
+  'Grande École': 'linear-gradient(160deg, #003C8F 0%, #001A4D 100%)',
+  "École d'Ingénieurs": 'linear-gradient(160deg, #E6A800 0%, #A07000 100%)',
+  "École d'ingénieurs": 'linear-gradient(160deg, #E6A800 0%, #A07000 100%)',
+  "École d'Art": 'linear-gradient(160deg, #E3001B 0%, #8B0012 100%)',
+  "École d'Architecture": 'linear-gradient(160deg, #2d6a4f 0%, #1b4332 100%)',
+  'École Spécialisée': 'linear-gradient(160deg, #1A1A1A 0%, #3D3D3D 100%)',
+  'Université': 'linear-gradient(160deg, #003C8F 0%, #0055cc 100%)',
+  'IUT': 'linear-gradient(160deg, #3D3D3D 0%, #1A1A1A 100%)',
+};
+
+const SCHOOL_EMOJIS: Record<string, string> = {
+  'Grande École': '🏛️',
+  "École d'Ingénieurs": '⚙️',
+  "École d'ingénieurs": '⚙️',
+  "École d'Art": '🎨',
+  "École d'Architecture": '🏗️',
+  'École Spécialisée': '💻',
+  'Université': '🎓',
+  'IUT': '🔬',
+};
+
+const TYPE_VARIANTS: Record<string, 'red' | 'blue' | 'yellow' | 'gray'> = {
+  'Grande École': 'red',
+  "École d'Ingénieurs": 'yellow',
+  "École d'ingénieurs": 'yellow',
+  "École d'Art": 'red',
+  "École d'Architecture": 'blue',
+  'École Spécialisée': 'gray',
+  'Université': 'blue',
+  'IUT': 'gray',
+};
+
+function schoolToCard(s: SchoolRow): SwipeCard {
+  return {
+    id: s.id,
+    name: s.name,
+    type: s.type,
+    typeVariant: TYPE_VARIANTS[s.type] ?? 'gray',
+    city: s.city,
+    fields: s.target_fields.slice(0, 3),
+    gradient: SCHOOL_GRADIENTS[s.type] ?? 'linear-gradient(160deg, #003C8F 0%, #001A4D 100%)',
+    emoji: SCHOOL_EMOJIS[s.type] ?? '🎓',
+  };
+}
 
 const REELS: Reel[] = [
   { id: 'r1', schoolName: 'HEC Paris', title: 'Une journée dans les locaux de Jouy-en-Josas', duration: '0:28', views: '12.4k', thumbnail_color: '#003C8F', tags: ['Grande École', 'Économie'] },
@@ -356,19 +354,32 @@ function ArticleCard({ article }: { article: Article }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DiscoverPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('swipe');
-  const [cards, setCards] = useState<School[]>([...SCHOOLS].reverse());
+  const [cards, setCards] = useState<SwipeCard[]>([]);
+  const [loadingCards, setLoadingCards] = useState(true);
   const [rightCount, setRightCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [gone, setGone] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    getSchools().then((schools) => {
+      setCards([...schools.map(schoolToCard)].reverse());
+      setLoadingCards(false);
+    });
+  }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
 
-  const handleSwipe = (direction: string, school: School) => {
+  const handleSwipe = (direction: string, school: SwipeCard) => {
     setGone((prev) => new Set(prev).add(school.id));
+    const swipeDir = direction === 'right' ? 'right' : 'left';
+    if (user) {
+      upsertMatch({ student_id: user.id, school_id: school.id, student_swipe: swipeDir, school_interest: false, appointment_booked: false });
+    }
     if (direction === 'right') {
       const next = rightCount + 1;
       setRightCount(next);
@@ -505,7 +516,22 @@ export default function DiscoverPage() {
             className="swipe-container"
             style={{ height: 420, width: '100%', maxWidth: 380, position: 'relative' }}
           >
-            {cards.length === 0 || cards.every((c) => gone.has(c.id)) ? (
+            {loadingCards ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  gap: 16,
+                  color: 'var(--le-gray-500)',
+                }}
+              >
+                <span style={{ fontSize: 40 }}>⏳</span>
+                <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>Chargement des écoles…</p>
+              </div>
+            ) : cards.length === 0 || cards.every((c) => gone.has(c.id)) ? (
               <div
                 style={{
                   display: 'flex',
@@ -528,7 +554,7 @@ export default function DiscoverPage() {
                   size="sm"
                   onClick={() => {
                     setGone(new Set());
-                    setCards([...SCHOOLS].reverse());
+                    getSchools().then((schools) => setCards([...schools.map(schoolToCard)].reverse()));
                   }}
                 >
                   Recommencer
