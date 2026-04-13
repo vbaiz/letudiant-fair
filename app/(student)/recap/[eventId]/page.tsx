@@ -8,7 +8,6 @@ import Tag from '@/components/ui/Tag'
 import Button from '@/components/ui/Button'
 import SectionLabel from '@/components/ui/SectionLabel'
 import OrientationBadge from '@/components/ui/OrientationBadge'
-import StripeRule from '@/components/ui/StripeRule'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -326,8 +325,6 @@ export default function RecapPage({ params }: { params: Promise<{ eventId: strin
           </div>
         </div>
       </div>
-
-      <StripeRule />
 
       {/* ── Mon Bilan ── */}
       {activeTab === 'bilan' && (

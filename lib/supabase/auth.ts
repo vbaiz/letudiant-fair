@@ -1,4 +1,3 @@
-'use client'
 import { getSupabase } from './client'
 
 export async function signInWithEmail(email: string, password: string) {

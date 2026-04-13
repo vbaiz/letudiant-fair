@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
-import StripeRule from "@/components/ui/StripeRule";
 import PwaRegister from "@/components/PwaRegister";
 import { ToastProvider } from "@/components/ui/Toaster";
 
@@ -53,7 +52,6 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body className="min-h-full flex flex-col bg-white text-le-gray-900">
-        <StripeRule />
         <ToastProvider>
           {children}
         </ToastProvider>

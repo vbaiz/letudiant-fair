@@ -1,5 +1,4 @@
 "use client";
-export const dynamic = 'force-dynamic'
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -123,9 +122,64 @@ export default function RegisterPage() {
 
   async function handleFinalSubmit() {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    router.push("/student/home");
+    const errs: Record<string, string> = {};
+    if (!level) errs.level = "Choisissez votre niveau";
+    if (selectedDomains.length === 0) errs.domains = "Sélectionnez au moins un domaine";
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) { setLoading(false); return; }
+
+    try {
+      const { getSupabase } = await import("@/lib/supabase/client");
+      const supabase = getSupabase();
+
+      // 1. Create auth account
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: `${firstName} ${lastName}`.trim(),
+            role: "student",
+            education_level: level,
+          },
+        },
+      });
+
+      if (error) {
+        setErrors({ submit: error.message });
+        setLoading(false);
+        return;
+      }
+
+      // 2. Upsert public profile
+      if (data.user) {
+        const dob_value = dob || null;
+        const is_minor = isUnder16();
+        await supabase.from("users").upsert({
+          id: data.user.id,
+          email,
+          name: `${firstName} ${lastName}`.trim() || email,
+          role: "student",
+          dob: dob_value,
+          education_level: level,
+          education_branches: selectedDomains,
+          parent_approved: !is_minor,
+          is_minor,
+          parent_email: is_minor && parentEmail ? parentEmail : null,
+          optin_letudiant: true,
+          consent_date: new Date().toISOString(),
+          orientation_stage: "exploring",
+          orientation_score: 0,
+          intent_score: 0,
+          intent_level: "low",
+        });
+      }
+
+      router.push("/home");
+    } catch (err: unknown) {
+      setErrors({ submit: err instanceof Error ? err.message : "Erreur lors de la création du compte" });
+      setLoading(false);
+    }
   }
 
   return (
@@ -445,6 +499,17 @@ export default function RegisterPage() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {errors.submit && (
+                <p style={{ color: "#E3001B", fontSize: "13px", background: "#FDEAEA", padding: "10px 14px", borderRadius: "8px", margin: 0 }}>
+                  {errors.submit}
+                </p>
+              )}
+              {errors.level && (
+                <p style={{ color: "#E3001B", fontSize: "13px", margin: 0 }}>{errors.level}</p>
+              )}
+              {errors.domains && (
+                <p style={{ color: "#E3001B", fontSize: "13px", margin: 0 }}>{errors.domains}</p>
+              )}
               <Button
                 type="button"
                 variant="primary"

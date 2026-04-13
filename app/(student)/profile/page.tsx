@@ -8,7 +8,6 @@ import { useToast } from '@/components/ui/Toaster'
 import OrientationBadge from '@/components/ui/OrientationBadge'
 import SectionLabel from '@/components/ui/SectionLabel'
 import Button from '@/components/ui/Button'
-import StripeRule from '@/components/ui/StripeRule'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 const DOMAINS = [
@@ -265,8 +264,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-
-      <StripeRule />
 
       {/* Interests section */}
       <div style={{ padding: '20px 20px 0' }}>

@@ -1,17 +1,24 @@
 'use client'
-export const dynamic = 'force-dynamic'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signInWithEmail, signInWithGoogle } from '@/lib/supabase/auth'
 import Logo from '@/components/ui/Logo'
 import StripeRule from '@/components/ui/StripeRule'
 
-export default function LoginPage() {
+// Inner component uses useSearchParams — must be wrapped in <Suspense>
+function LoginInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Surface OAuth errors redirected back from /auth/callback
+  useEffect(() => {
+    const oauthError = searchParams.get('error')
+    if (oauthError) setError(decodeURIComponent(oauthError))
+  }, [searchParams])
 
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -139,5 +146,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div style={{ width: 36, height: 36, border: '3px solid #E3001B', borderTop: '3px solid transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    }>
+      <LoginInner />
+    </Suspense>
   )
 }

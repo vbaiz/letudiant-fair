@@ -1,7 +1,6 @@
 'use client'
-export const dynamic = 'force-dynamic'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 
 // ─── Education levels ─────────────────────────────────────────────────────────
@@ -34,9 +33,24 @@ export default function BoothRegisterPage() {
   const [createdName,    setCreatedName]    = useState('')
   const [errorMsg,       setErrorMsg]       = useState('')
   const [countdown,      setCountdown]      = useState(30)
+  const [qrPayload,      setQrPayload]      = useState('')
 
   const qrCanvasRef = useRef<HTMLCanvasElement>(null)
   const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Draw QR AFTER the success state is rendered and canvas is in the DOM
+  useEffect(() => {
+    if (step !== 'success' || !qrPayload || !qrCanvasRef.current) return
+    QRCode.toCanvas(qrCanvasRef.current, qrPayload, {
+      width: 280, margin: 2,
+      color: { dark: '#1A1A1A', light: '#FFFFFF' },
+    }).catch(err => console.error('[Booth] QR render failed:', err))
+  }, [step, qrPayload])
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [])
 
   // ── Submit ────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
@@ -54,13 +68,9 @@ export default function BoothRegisterPage() {
 
       if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
 
-      // Generate QR on canvas
+      // Store payload — the QR will be drawn by useEffect once canvas is in DOM
       const payload = JSON.stringify({ uid: data.uid, app: 'letudiant-salons' })
-      await QRCode.toCanvas(qrCanvasRef.current!, payload, {
-        width: 280, margin: 2,
-        color: { dark: '#1A1A1A', light: '#FFFFFF' },
-      })
-
+      setQrPayload(payload)
       setCreatedName(data.name)
       setStep('success')
 
@@ -76,8 +86,8 @@ export default function BoothRegisterPage() {
         }
       }, 1000)
 
-    } catch (err: any) {
-      setErrorMsg(err.message ?? 'Une erreur est survenue')
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Une erreur est survenue')
       setStep('error')
     }
   }

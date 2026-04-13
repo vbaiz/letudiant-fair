@@ -7,13 +7,14 @@ import { NextResponse } from 'next/server'
 // Returns the new user's ID so the client can generate a QR code instantly.
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const { firstName, lastName, email, educationLevel } = body as {
-    firstName:      string
-    lastName:       string
-    email?:         string
-    educationLevel: string
+  let body: { firstName?: string; lastName?: string; email?: string; educationLevel?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Corps de requête invalide' }, { status: 400 })
   }
+
+  const { firstName, lastName, email, educationLevel } = body
 
   if (!firstName?.trim() || !lastName?.trim() || !educationLevel) {
     return NextResponse.json({ error: 'Champs obligatoires manquants' }, { status: 400 })

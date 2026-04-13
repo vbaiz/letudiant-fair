@@ -1,5 +1,4 @@
 'use client'
-export const dynamic = 'force-dynamic'
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase/client'
@@ -32,6 +31,8 @@ function OnboardingInner() {
     optinLetudiant: false, optinCommercial: false, optinWax: false,
     // Teacher
     schoolName: '', teacherEmail: '',
+    // Parent
+    childEmail: '',
   })
 
   useEffect(() => {
@@ -87,7 +88,23 @@ function OnboardingInner() {
           consent_date: new Date().toISOString(),
           orientation_stage: 'exploring',
           orientation_score: 0,
+          intent_score: 0,
+          intent_level: 'low',
+          // Teacher-specific
+          ...(role === 'teacher' && form.schoolName ? { school_name: form.schoolName } : {}),
         })
+
+        // For parent role: link child's profile by setting parent_email on the child's user row
+        if (role === 'parent' && form.childEmail) {
+          try {
+            await supabase
+              .from('users')
+              .update({ parent_email: email.toLowerCase() })
+              .eq('email', form.childEmail.toLowerCase().trim())
+          } catch {
+            // Non-fatal — child may not have registered yet
+          }
+        }
 
         // Resolve pre-registration if this email was synced from Eventmaker
         if (role === 'student') {
@@ -345,28 +362,40 @@ function OnboardingInner() {
                 <h2 style={{ margin: '0 0 8px', fontSize: '1.375rem', fontWeight: 800 }}>Espace parent</h2>
                 {[['Prénom', 'firstName'], ['Nom', 'lastName']].map(([label, key]) => (
                   <div key={key}>
-                    <label style={labelStyle}>{label}</label>
+                    <label style={labelStyle}>{label} <span style={{ color: '#E3001B' }}>*</span></label>
                     <input style={inputStyle} value={form[key as keyof typeof form] as string} onChange={e => update(key, e.target.value)} placeholder={label} />
                   </div>
                 ))}
                 <div>
-                  <label style={labelStyle}>Email</label>
+                  <label style={labelStyle}>Email <span style={{ color: '#E3001B' }}>*</span></label>
                   <input style={inputStyle} type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="votre@email.com" />
                 </div>
                 <div>
-                  <label style={labelStyle}>Mot de passe</label>
+                  <label style={labelStyle}>Mot de passe <span style={{ color: '#E3001B' }}>*</span></label>
                   <input style={inputStyle} type="password" value={form.password} onChange={e => update('password', e.target.value)} placeholder="8 caractères minimum" />
                 </div>
-                <button style={btnPrimary} onClick={() => setStep(2)}>Continuer →</button>
+                <button style={btnPrimary} onClick={() => {
+                  if (!form.firstName.trim()) { toast('Prénom requis', 'warning'); return }
+                  if (!form.lastName.trim())  { toast('Nom requis', 'warning'); return }
+                  if (!form.email.includes('@')) { toast('Email invalide', 'warning'); return }
+                  if (form.password.length < 8) { toast('Le mot de passe doit faire au moins 8 caractères', 'warning'); return }
+                  setStep(2)
+                }}>Continuer →</button>
               </div>
             )}
             {step === 2 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <h2 style={{ margin: '0 0 8px', fontSize: '1.375rem', fontWeight: 800 }}>Lier un enfant</h2>
-                <p style={{ color: '#6B6B6B', fontSize: '0.875rem' }}>Entrez l&apos;email de votre enfant — il recevra une invitation à valider.</p>
+                <p style={{ color: '#6B6B6B', fontSize: '0.875rem' }}>Entrez l&apos;email de votre enfant — il recevra une notification.</p>
                 <div>
-                  <label style={labelStyle}>Email de votre enfant</label>
-                  <input style={inputStyle} type="email" placeholder="enfant@email.com" />
+                  <label style={labelStyle}>Email de votre enfant <span style={{ color: '#6B6B6B', fontWeight: 400 }}>(optionnel)</span></label>
+                  <input
+                    style={inputStyle}
+                    type="email"
+                    placeholder="enfant@email.com"
+                    value={form.childEmail}
+                    onChange={e => update('childEmail', e.target.value)}
+                  />
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button style={{ ...btnPrimary, background: '#F0F0F0', color: '#4B4B4B', width: 'auto', padding: '14px 24px' }} onClick={() => setStep(1)}>← Retour</button>

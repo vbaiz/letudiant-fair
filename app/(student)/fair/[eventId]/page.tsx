@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react';
 import { use } from 'react';
-import StripeRule from '@/components/ui/StripeRule';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import SectionLabel from '@/components/ui/SectionLabel';
@@ -90,8 +89,6 @@ export default function FairPage({
           ))}
         </div>
       </div>
-
-      <StripeRule />
 
       {/* Tab content */}
       <div style={{ padding: '20px' }}>

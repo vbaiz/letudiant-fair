@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import SectionLabel from '@/components/ui/SectionLabel';
-import StripeRule from '@/components/ui/StripeRule';
 import { getAppointmentsForStudent } from '@/lib/supabase/database';
 import { useAuth } from '@/hooks/useAuth';
 import type { AppointmentRow } from '@/lib/supabase/types';
@@ -494,8 +493,6 @@ export default function SavedPage() {
           ))}
         </div>
       </div>
-
-      <StripeRule />
 
       {/* Tab content */}
       <div style={{ padding: '16px 16px 0' }}>

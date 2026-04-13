@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import TinderCard from 'react-tinder-card';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
-import StripeRule from '@/components/ui/StripeRule';
 import { getSchools, upsertMatch, refreshIntentScore } from '@/lib/supabase/database';
 import { useAuth } from '@/hooks/useAuth';
 import type { SchoolRow } from '@/lib/supabase/types';
@@ -474,8 +473,6 @@ export default function DiscoverPage() {
           ))}
         </div>
       </div>
-
-      <StripeRule />
 
       {/* Toast */}
       {toast && (
