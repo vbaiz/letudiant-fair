@@ -191,6 +191,8 @@ export type GroupRow = {
 }
 
 // ─── Database type (references flat row types, no circular refs) ──────────────
+// Relationships: [] is required by @supabase/supabase-js 2.46.x (GenericTable constraint).
+// We don't use typed relationship traversal so an empty array satisfies the type.
 
 export type Database = {
   public: {
@@ -199,61 +201,73 @@ export type Database = {
         Row: UserRow
         Insert: Partial<UserRow> & { id: string; email: string }
         Update: Partial<UserRow>
+        Relationships: []
       }
       events: {
         Row: EventRow
         Insert: Partial<EventRow> & { name: string; city: string; event_date: string }
         Update: Partial<EventRow>
+        Relationships: []
       }
       schools: {
         Row: SchoolRow
         Insert: Partial<SchoolRow> & { name: string; type: string; city: string }
         Update: Partial<SchoolRow>
+        Relationships: []
       }
       formations: {
         Row: FormationRow
         Insert: Partial<FormationRow> & { school_id: string; name: string; duration: string; level: string }
         Update: Partial<FormationRow>
+        Relationships: []
       }
       stands: {
         Row: StandRow
         Insert: Partial<StandRow> & { event_id: string; school_id: string; category: string }
         Update: Partial<StandRow>
+        Relationships: []
       }
       sessions: {
         Row: SessionRow
         Insert: Partial<SessionRow> & { event_id: string; title: string; room: string; start_time: string; end_time: string }
         Update: Partial<SessionRow>
+        Relationships: []
       }
       scans: {
         Row: ScanRow
         Insert: Partial<ScanRow> & { user_id: string; event_id: string; channel: ScanRow['channel'] }
         Update: Partial<ScanRow>
+        Relationships: []
       }
       leads: {
         Row: LeadRow
         Insert: Partial<LeadRow> & { student_id: string; school_id: string; event_id: string; education_level: string }
         Update: Partial<LeadRow>
+        Relationships: []
       }
       matches: {
         Row: MatchRow
         Insert: Partial<MatchRow> & { student_id: string; school_id: string }
         Update: Partial<MatchRow>
+        Relationships: []
       }
       appointments: {
         Row: AppointmentRow
         Insert: Partial<AppointmentRow> & { student_id: string; school_id: string; event_id: string; slot_time: string }
         Update: Partial<AppointmentRow>
+        Relationships: []
       }
       groups: {
         Row: GroupRow
         Insert: Partial<GroupRow> & { teacher_id: string; school_name: string; fair_id: string; invite_link: string; invite_link_expiry: string }
         Update: Partial<GroupRow>
+        Relationships: []
       }
       pre_registrations: {
         Row: PreRegistrationRow
         Insert: Partial<PreRegistrationRow> & { email: string; first_name: string; last_name: string; event_id: string }
         Update: Partial<PreRegistrationRow>
+        Relationships: []
       }
     }
     Views: Record<string, never>

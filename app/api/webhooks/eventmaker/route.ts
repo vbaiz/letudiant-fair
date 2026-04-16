@@ -72,17 +72,26 @@ export async function POST(request: Request) {
     if (education_level) updates.education_level = education_level
     if (bac_series)      updates.bac_series      = bac_series
     if (postal_code)     updates.postal_code      = postal_code
+
+    // Always write Eventmaker registration ID to user record
+    const { data: current } = await supabase
+      .from('users')
+      .select('education_branches, eventmaker_ids')
+      .eq('id', existingUser.id)
+      .single()
+
     if (declared_domains?.length) {
-      // Merge declared_domains with existing education_branches
-      const { data: current } = await supabase
-        .from('users').select('education_branches').eq('id', existingUser.id).single()
       const merged = Array.from(new Set([...(current?.education_branches ?? []), ...declared_domains]))
       updates.education_branches = merged
     }
-    if (Object.keys(updates).length > 0) {
-      await supabase.from('users').update(updates).eq('id', existingUser.id)
-        .catch(err => console.error('[eventmaker] profile enrichment failed:', err))
-    }
+
+    // Merge eventmaker_ids (user may attend multiple fairs)
+    updates.eventmaker_ids = Array.from(
+      new Set([...(current?.eventmaker_ids ?? []), registration_id])
+    )
+
+    const { error: updateErr } = await supabase.from('users').update(updates).eq('id', existingUser.id)
+    if (updateErr) console.error('[eventmaker] profile enrichment failed:', updateErr)
   }
 
   return NextResponse.json({

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -54,8 +54,26 @@ function StepDots({ current }: { current: number }) {
   );
 }
 
+// Decode a base64url-encoded JSON prefill token (from L'étudiant SSO redirect).
+// Returns null if the token is missing or malformed — the form just renders empty.
+function decodePrefill(raw: string | null): {
+  email?: string; firstName?: string; lastName?: string;
+  education_level?: string; btoc_id?: string
+} | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(atob(raw.replace(/-/g, '+').replace(/_/g, '/')));
+  } catch {
+    return null;
+  }
+}
+
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Derive role from ?role= param — only 'teacher' is a valid override
+  const role = searchParams.get("role") === "teacher" ? "teacher" : "student";
 
   const [step, setStep] = useState<Step>(1);
 
@@ -69,12 +87,27 @@ export default function RegisterPage() {
   // Step 1b
   const [parentEmail, setParentEmail] = useState("");
 
-  // Step 2
+  // Step 2 — only relevant for students
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [level, setLevel] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Populated when arriving from L'étudiant SSO (?prefill=<base64url>)
+  const [btocId, setBtocId] = useState<string | null>(null);
+
+  // On mount: decode ?prefill= and pre-fill form if present
+  useEffect(() => {
+    const prefill = decodePrefill(searchParams.get("prefill"));
+    if (!prefill) return;
+    if (prefill.email)           setEmail(prefill.email);
+    if (prefill.firstName)       setFirstName(prefill.firstName);
+    if (prefill.lastName)        setLastName(prefill.lastName);
+    if (prefill.btoc_id)         setBtocId(prefill.btoc_id);
+    if (prefill.education_level) setLevel(prefill.education_level);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function getStepDot(): number {
     if (step === 1 || step === "1b") return 1;
@@ -101,9 +134,15 @@ export default function RegisterPage() {
     if (!lastName.trim()) errs.lastName = "Nom requis";
     if (!email.includes("@")) errs.email = "Email invalide";
     if (password.length < 8) errs.password = "8 caractères minimum";
-    if (!dob) errs.dob = "Date de naissance requise";
+    if (role === "student" && !dob) errs.dob = "Date de naissance requise";
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
+
+    // Teachers skip the interests step — go straight to account creation
+    if (role === "teacher") {
+      handleFinalSubmit();
+      return;
+    }
 
     if (isUnder16()) {
       setStep("1b");
@@ -122,60 +161,55 @@ export default function RegisterPage() {
 
   async function handleFinalSubmit() {
     setLoading(true);
-    const errs: Record<string, string> = {};
-    if (!level) errs.level = "Choisissez votre niveau";
-    if (selectedDomains.length === 0) errs.domains = "Sélectionnez au moins un domaine";
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) { setLoading(false); return; }
+
+    // Students must pick at least one domain and a level
+    if (role === "student") {
+      const errs: Record<string, string> = {};
+      if (!level) errs.level = "Choisissez votre niveau";
+      if (selectedDomains.length === 0) errs.domains = "Sélectionnez au moins un domaine";
+      setErrors(errs);
+      if (Object.keys(errs).length > 0) { setLoading(false); return; }
+    }
 
     try {
-      const { getSupabase } = await import("@/lib/supabase/client");
-      const supabase = getSupabase();
-
-      // 1. Create auth account
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: `${firstName} ${lastName}`.trim(),
-            role: "student",
-            education_level: level,
-          },
-        },
+      // 1. Create account server-side (admin API — email confirmed immediately, no confirmation email)
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
+          dob: dob || undefined,
+          role,
+          level: level || undefined,
+          domains: selectedDomains,
+          parentEmail: parentEmail || undefined,
+          btocId: btocId || undefined,
+        }),
       });
 
-      if (error) {
-        setErrors({ submit: error.message });
+      const json = await res.json();
+      if (!res.ok) {
+        setErrors({ submit: json.error ?? "Erreur lors de la création du compte" });
         setLoading(false);
         return;
       }
 
-      // 2. Upsert public profile
-      if (data.user) {
-        const dob_value = dob || null;
-        const is_minor = isUnder16();
-        await supabase.from("users").upsert({
-          id: data.user.id,
-          email,
-          name: `${firstName} ${lastName}`.trim() || email,
-          role: "student",
-          dob: dob_value,
-          education_level: level,
-          education_branches: selectedDomains,
-          parent_approved: !is_minor,
-          is_minor,
-          parent_email: is_minor && parentEmail ? parentEmail : null,
-          optin_letudiant: true,
-          consent_date: new Date().toISOString(),
-          orientation_stage: "exploring",
-          orientation_score: 0,
-          intent_score: 0,
-          intent_level: "low",
-        });
+      // 2. Sign in immediately (account is already confirmed server-side)
+      const { getSupabase } = await import("@/lib/supabase/client");
+      const supabase = getSupabase();
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signInError) {
+        setErrors({ submit: signInError.message });
+        setLoading(false);
+        return;
       }
 
-      router.push("/home");
+      // 3. Redirect based on role
+      router.push(role === "teacher" ? "/teacher/dashboard" : "/home");
     } catch (err: unknown) {
       setErrors({ submit: err instanceof Error ? err.message : "Erreur lors de la création du compte" });
       setLoading(false);
@@ -223,10 +257,10 @@ export default function RegisterPage() {
         {step === 1 && (
           <>
             <h1 className="le-h2" style={{ textAlign: "center", marginBottom: "6px" }}>
-              Créer un compte
+              {role === "teacher" ? "Espace enseignant" : "Créer un compte"}
             </h1>
             <p className="le-body" style={{ textAlign: "center", marginBottom: "28px" }}>
-              Étape 1 — Vos informations
+              {role === "teacher" ? "Vos informations" : "Étape 1 — Vos informations"}
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -270,18 +304,27 @@ export default function RegisterPage() {
                 required
                 error={errors.password}
               />
-              <Input
-                id="dob"
-                type="date"
-                label="Date de naissance"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-                required
-                error={errors.dob}
-              />
+              {/* DOB only needed for students (age gate / GDPR minor check) */}
+              {role === "student" && (
+                <Input
+                  id="dob"
+                  type="date"
+                  label="Date de naissance"
+                  value={dob}
+                  onChange={(e) => setDob(e.target.value)}
+                  required
+                  error={errors.dob}
+                />
+              )}
 
-              <Button type="button" variant="primary" onClick={handleStep1Continue}>
-                Continuer
+              {errors.submit && (
+                <p style={{ color: "#E3001B", fontSize: "13px", background: "#FDEAEA", padding: "10px 14px", borderRadius: "8px", margin: 0 }}>
+                  {errors.submit}
+                </p>
+              )}
+
+              <Button type="button" variant="primary" onClick={handleStep1Continue} disabled={loading}>
+                {loading ? "Création du compte…" : role === "teacher" ? "Créer mon espace" : "Continuer"}
               </Button>
             </div>
 
