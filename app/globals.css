@@ -79,33 +79,93 @@ body {
 /* ─── Stripe rule (Charte Graphique accent) ─── */
 .le-stripe {
   width: 100%;
-  height: 5px;
-  background: linear-gradient(90deg, #EC1F27 60%, #0066CC 60% 80%, #FCD716 80%);
+  height: 6px;
+  background: linear-gradient(90deg,
+    #EC1F27 0% 33.33%,
+    #0066CC 33.33% 66.66%,
+    #FCD716 66.66% 100%
+  );
   flex-shrink: 0;
 }
 
-/* ─── Typography ─── */
+/* Multicolor stripe (full charte palette) */
+.le-stripe-multi {
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(90deg,
+    #E91E63 0% 12.5%,
+    #FF6B35 12.5% 25%,
+    #FCD716 25% 37.5%,
+    #CDDC39 37.5% 50%,
+    #00AA66 50% 62.5%,
+    #00BFB3 62.5% 75%,
+    #0066CC 75% 87.5%,
+    #2B1B4D 87.5% 100%
+  );
+  flex-shrink: 0;
+}
+
+/* Vertical colored accent bar */
+.le-accent-bar {
+  width: 4px;
+  height: 100%;
+  background: var(--le-tomate);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Multicolor dots (like the charte identity pattern) */
+.le-dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.le-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.le-dots span:nth-child(1) { background: #EC1F27; }
+.le-dots span:nth-child(2) { background: #0066CC; }
+.le-dots span:nth-child(3) { background: #FCD716; }
+.le-dots span:nth-child(4) { background: #00AA66; }
+.le-dots span:nth-child(5) { background: #E91E63; }
+
+/* ─── Typography (Charte 24/25 - Editorial, Bold, Impactful) ─── */
+.le-display {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 900;
+  line-height: 0.95;
+  color: var(--le-noir);
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  font-stretch: condensed;
+}
+
 .le-h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--le-gray-900);
-  letter-spacing: -0.02em;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--le-noir);
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
 }
 
 .le-h2 {
   font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.25;
-  color: var(--le-gray-900);
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--le-noir);
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
 }
 
 .le-h3 {
   font-size: 1.125rem;
-  font-weight: 600;
-  line-height: 1.35;
-  color: var(--le-gray-900);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--le-noir);
+  letter-spacing: -0.005em;
 }
 
 .le-body {
@@ -117,21 +177,42 @@ body {
 
 .le-caption {
   font-size: 0.75rem;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.5;
   color: var(--le-gray-500);
+  letter-spacing: 0.02em;
 }
 
-/* Section label */
+/* Eyebrow / section label (Charte 24/25) */
 .le-section-label {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   letter-spacing: 3px;
   text-transform: uppercase;
-  color: var(--le-gray-500);
-  border-bottom: 2px solid var(--le-red);
-  padding-bottom: 4px;
+  color: var(--le-gray-900);
+  padding-bottom: 6px;
   display: inline-block;
+  position: relative;
+}
+
+.le-section-label::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 28px;
+  height: 3px;
+  background: var(--le-tomate);
+}
+
+/* Quote style (editorial) */
+.le-quote {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--le-noir);
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
 }
 
 /* ─── Buttons ─── */
