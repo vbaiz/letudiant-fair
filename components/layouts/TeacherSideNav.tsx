@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 
 interface NavItem {
