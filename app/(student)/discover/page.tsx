@@ -6,8 +6,7 @@ import TinderCard from 'react-tinder-card';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import StripeRule from '@/components/ui/StripeRule';
-import { getSchools } from '@/lib/supabase/database';
-import { upsertMatch } from '@/lib/supabase/database';
+import { getSchools, upsertMatch, saveSchoolToWishlist } from '@/lib/supabase/database';
 import { rankSchoolsForStudent } from '@/lib/supabase/schoolRanking';
 import { useAuth } from '@/hooks/useAuth';
 import type { SchoolRow } from '@/lib/supabase/types';
@@ -380,6 +379,16 @@ export default function DiscoverPage() {
           });
         } catch (err) {
           console.error('upsertMatch failed:', err);
+        }
+      }
+    } else if (direction === 'up') {
+      // Save school to wishlist
+      showToast(`💾 ${school.name} enregistrée`);
+      if (user?.id) {
+        try {
+          await saveSchoolToWishlist(user.id, school.id);
+        } catch (err) {
+          console.error('saveSchoolToWishlist failed:', err);
         }
       }
     }

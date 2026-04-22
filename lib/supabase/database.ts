@@ -131,6 +131,23 @@ export async function getStudentRightSwipes(studentId: string): Promise<string[]
   return data?.map((m) => m.school_id) ?? []
 }
 
+export async function saveSchoolToWishlist(userId: string, schoolId: string): Promise<void> {
+  const { data: user } = await getSupabase()
+    .from('users')
+    .select('wishlist')
+    .eq('id', userId)
+    .single()
+
+  const wishlist = user?.wishlist ?? []
+
+  if (!wishlist.includes(schoolId)) {
+    await getSupabase()
+      .from('users')
+      .update({ wishlist: [...wishlist, schoolId] })
+      .eq('id', userId)
+  }
+}
+
 // ─── Groups ───────────────────────────────────────────────────────────────────
 
 export async function getGroupByInviteLink(token: string): Promise<GroupRow | null> {
