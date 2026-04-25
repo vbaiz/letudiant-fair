@@ -1,5 +1,5 @@
-'use client'
-export const dynamic = 'force-dynamic'
+'use client';
+export const dynamic = 'force-dynamic';
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { getSupabase } from '@/lib/supabase/client'
@@ -521,6 +521,35 @@ export default function AdminDashboard() {
                     </option>
                   ))}
                 </select>
+              )}
+
+              {/* Score Booth launcher — opens the central booth UI for the
+                  selected event in a new tab so the dashboard stays open. */}
+              {selectedEvent && (
+                <a
+                  href={`/booth/score?event_id=${selectedEvent.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    background: C.red,
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '8px 14px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    fontFamily: "'DM Sans', sans-serif",
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="Ouvrir la Score Booth pour ce salon (mode opérateur)"
+                >
+                  Lancer Score Booth →
+                </a>
               )}
             </div>
           </div>

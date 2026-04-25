@@ -245,6 +245,121 @@ export async function refreshIntentScore(userId: string): Promise<void> {
     .eq('id', userId)
 }
 
+// ─── Booth Captures (Phygital) ────────────────────────────────────────────────
+
+/**
+ * Get booth captures for a user by email (for phygital data merging).
+ * Used to access non-app-user booth signals.
+ */
+export async function getBoothCapturesByEmail(email: string) {
+  const { data } = await getSupabase()
+    .from('booth_captures')
+    .select('*, stands(*, schools(name))')
+    .eq('email', email)
+    .is('synced_to_user_id', null)
+    .order('captured_at', { ascending: false })
+  return data ?? []
+}
+
+/**
+ * Get all booth captures for a student (after sync).
+ * Used to view historical booth interactions.
+ */
+export async function getBoothCapturesForStudent(userId: string) {
+  const { data } = await getSupabase()
+    .from('booth_captures')
+    .select('*, stands(*, schools(name))')
+    .eq('synced_to_user_id', userId)
+    .order('captured_at', { ascending: false })
+  return data ?? []
+}
+
+/**
+ * Enhanced refreshIntentScore that includes booth capture signals.
+ * Incorporates non-app-user orientation data into intent scoring.
+ *
+ * Weighting:
+ *   - If student has app activity: use app signals (70%) + booth signals (30%)
+ *   - If student has ONLY booth data: use booth orientation_stage directly
+ *   - Booth signal recency matters: fresh captures (< 7 days) get higher weight
+ */
+export async function refreshIntentScoreWithBoothData(userId: string): Promise<void> {
+  const { computeIntentScore, computeIntentLevel } = await import('@/lib/scoring/intentScore')
+  const supabase = getSupabase()
+
+  // Get user + all signals (app + booth)
+  const [userRes, scansRes, matchesRes, appointmentsRes, boothRes] = await Promise.all([
+    supabase.from('users').select('email, education_level').eq('id', userId).single(),
+    supabase.from('scans').select('channel').eq('user_id', userId),
+    supabase.from('matches').select('student_swipe').eq('student_id', userId),
+    supabase.from('appointments').select('id').eq('student_id', userId).neq('status', 'cancelled').limit(1),
+    supabase
+      .from('booth_captures')
+      .select('orientation_stage, captured_at')
+      .eq('synced_to_user_id', userId)
+      .order('captured_at', { ascending: false }),
+  ])
+
+  const user = userRes.data
+  const scans = scansRes.data ?? []
+  const matches = matchesRes.data ?? []
+  const hasAppt = (appointmentsRes.data?.length ?? 0) > 0
+  const boothCaptures = boothRes.data ?? []
+
+  // ─── Compute app-only intent score ────────────────────────────────────────
+
+  const appScore = computeIntentScore({
+    hasEducationLevel: !!user?.education_level,
+    hasRealEmail: !!user?.email && !user.email.includes('@group.letudiant-salons.fr'),
+    standScanCount: scans.filter(s => s.channel === 'stand').length,
+    swipeRightCount: matches.filter(m => m.student_swipe === 'right').length,
+    appointmentBooked: hasAppt,
+    conferenceCount: scans.filter(s => s.channel === 'conference').length,
+  })
+
+  // ─── Incorporate booth signals ────────────────────────────────────────────
+
+  let finalScore = appScore
+  let boothContribution = 0
+
+  if (boothCaptures.length > 0) {
+    const mostRecentCapture = boothCaptures[0]
+    const capturedDaysAgo = Math.floor(
+      (Date.now() - new Date(mostRecentCapture.captured_at).getTime()) / (1000 * 60 * 60 * 24)
+    )
+
+    // Booth stage → numeric value (for blending)
+    const boothStageToValue = { exploring: 30, comparing: 65, deciding: 90 }
+    const boothValue = boothStageToValue[mostRecentCapture.orientation_stage as keyof typeof boothStageToValue] || 30
+
+    // Recency weight: full (1.0) if <7 days, decays after
+    const recencyWeight = capturedDaysAgo < 7 ? 1.0 : Math.max(0.5, 1.0 - (capturedDaysAgo - 7) / 30)
+
+    // If student has app activity: blend (70% app + 30% booth)
+    // If student has NO app activity: use booth signal directly
+    if (scans.length > 0 || matches.length > 0 || hasAppt) {
+      boothContribution = boothValue * 0.3 * recencyWeight
+      finalScore = Math.round(appScore * 0.7 + boothContribution)
+    } else {
+      // No app activity: booth data is authoritative
+      finalScore = Math.round(boothValue * recencyWeight)
+    }
+  }
+
+  const level = computeIntentLevel(finalScore)
+
+  // ─── Persist updated score ────────────────────────────────────────────────
+
+  await supabase
+    .from('users')
+    .update({
+      intent_score: finalScore,
+      intent_level: level,
+      orientation_stage: level, // Map intent_level back to orientation_stage
+    })
+    .eq('id', userId)
+}
+
 // ─── Pre-Registrations ────────────────────────────────────────────────────────
 
 export async function getPreRegistrations(eventId: string) {

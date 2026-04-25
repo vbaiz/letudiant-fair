@@ -1,5 +1,5 @@
-'use client'
-export const dynamic = 'force-dynamic'
+'use client';
+export const dynamic = 'force-dynamic';
 /**
  * Exhibitor Leads Page — AGGREGATE ONLY
  *
@@ -31,10 +31,21 @@ interface AggregateStats {
   avgDwellMin:       number
 }
 
+interface BoothCaptureStats {
+  totalCaptures:     number
+  decidingPct:       number
+  comparingPct:      number
+  exploringPct:      number
+  deciding:          number
+  comparing:         number
+  exploring:         number
+}
+
 export default function ExhibitorLeadsPage() {
   const { user, profile } = useAuth()
   const qrRef = useRef<HTMLCanvasElement>(null)
   const [stats, setStats] = useState<AggregateStats | null>(null)
+  const [boothStats, setBoothStats] = useState<BoothCaptureStats | null>(null)
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [schoolName, setSchoolName] = useState('Votre établissement')
   const [loading, setLoading] = useState(true)
@@ -57,6 +68,14 @@ export default function ExhibitorLeadsPage() {
       setSchoolName(name)
 
       if (!sid) { setLoading(false); return }
+
+      // Get all stands for this school (for booth captures)
+      const { data: standRows } = await supabase
+        .from('stands')
+        .select('id')
+        .eq('school_id', sid)
+
+      const standIds = standRows?.map(s => s.id) ?? []
 
       // Aggregate scans for this school's stand
       const { data: scanRows } = await supabase
@@ -118,6 +137,35 @@ export default function ExhibitorLeadsPage() {
         topBranches,
         avgDwellMin,
       })
+
+      // ─── Phygital: Booth-Captured Non-Users ────────────────────────────────
+
+      if (standIds.length > 0) {
+        const { data: boothRows } = await supabase
+          .from('booth_captures')
+          .select('orientation_stage')
+          .in('stand_id', standIds)
+
+        const boothCaptures = boothRows ?? []
+        const boothTotal = boothCaptures.length
+
+        if (boothTotal > 0) {
+          const boothDeciding = boothCaptures.filter(b => (b as any).orientation_stage === 'deciding').length
+          const boothComparing = boothCaptures.filter(b => (b as any).orientation_stage === 'comparing').length
+          const boothExploring = boothCaptures.filter(b => (b as any).orientation_stage === 'exploring').length
+
+          setBoothStats({
+            totalCaptures: boothTotal,
+            deciding: boothDeciding,
+            comparing: boothComparing,
+            exploring: boothExploring,
+            decidingPct: boothTotal ? Math.round((boothDeciding / boothTotal) * 100) : 0,
+            comparingPct: boothTotal ? Math.round((boothComparing / boothTotal) * 100) : 0,
+            exploringPct: boothTotal ? Math.round((boothExploring / boothTotal) * 100) : 0,
+          })
+        }
+      }
+
       setLoading(false)
     }
     load()
@@ -187,9 +235,9 @@ export default function ExhibitorLeadsPage() {
               </div>
             )}
 
-            {/* Intent level distribution */}
+            {/* Intent level distribution — App users */}
             <div style={{ background: '#fff', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-              <SectionLabel>Distribution niveau d'intention</SectionLabel>
+              <SectionLabel>Distribution niveau d'intention — Utilisateurs App</SectionLabel>
               <p style={{ fontSize: '0.8125rem', color: '#6B6B6B', margin: '4px 0 16px' }}>
                 Calculé à partir des signaux comportementaux — aucun nom n'est associé
               </p>
@@ -220,6 +268,45 @@ export default function ExhibitorLeadsPage() {
                 </div>
               )}
             </div>
+
+            {/* Booth-Captured Non-Users (Phygital) */}
+            {boothStats && boothStats.totalCaptures > 0 && (
+              <div style={{ background: '#FFF7E0', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', border: '1.5px solid #FFD100' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <span style={{ fontSize: 24 }}>📱</span>
+                  <div>
+                    <SectionLabel style={{ margin: 0, fontSize: '0.8rem' }}>Capture Booth (Non-app)</SectionLabel>
+                    <p style={{ fontSize: '0.75rem', color: '#92400e', margin: '2px 0 0' }}>Staff-captured orientation data</p>
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.8125rem', color: '#92400e', margin: '0 0 14px' }}>
+                  {boothStats.totalCaptures} étudiants capturés au stand (sans app) — orientation collectée par le staff
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {[
+                    { label: '🟢 Décideurs',      pct: boothStats.decidingPct,  count: boothStats.deciding,  color: '#16A34A', desc: 'Almost decided' },
+                    { label: '🟡 Comparateurs',   pct: boothStats.comparingPct, count: boothStats.comparing, color: '#B45309', desc: 'Comparing schools' },
+                    { label: '🔵 Explorateurs',   pct: boothStats.exploringPct, count: boothStats.exploring, color: '#1D4ED8', desc: 'Just exploring' },
+                  ].map(item => (
+                    <div key={item.label}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <div>
+                          <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#78350F' }}>{item.label}</span>
+                          <span style={{ fontSize: '0.6875rem', color: '#92400e', marginLeft: 8 }}>({item.desc})</span>
+                        </div>
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: item.color }}>{item.count} ({item.pct}%)</span>
+                      </div>
+                      <div style={{ height: 8, background: '#FFE8B6', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${item.pct}%`, background: item.color, borderRadius: 4, transition: 'width 0.5s ease' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ fontSize: '0.75rem', color: '#92400e', margin: '12px 0 0', fontStyle: 'italic' }}>
+                  💡 Tip: Non-app users who engaged at your booth will be included in the J+1 data export with their booth-captured orientation signals.
+                </p>
+              </div>
+            )}
 
             {/* Top education levels */}
             {stats && stats.topLevels.length > 0 && (
