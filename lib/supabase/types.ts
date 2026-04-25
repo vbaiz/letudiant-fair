@@ -35,6 +35,7 @@ export type UserRow = {
   intent_level: 'low' | 'medium' | 'high'
   client_id_btoc: string | null
   eventmaker_ids: string[]
+  last_dwell_minutes: number | null
   created_at: string
   updated_at: string
 }
@@ -65,11 +66,13 @@ export type EventRow = {
   address: string | null
   description: string | null
   is_virtual: boolean
+  is_active: boolean
   created_at: string
 }
 
 export type SchoolRow = {
   id: string
+  user_id: string | null
   name: string
   type: string
   city: string
@@ -156,7 +159,8 @@ export type ScanRow = {
   event_id: string
   stand_id: string | null
   session_id: string | null
-  channel: 'entry' | 'stand' | 'conference'
+  channel: 'entry' | 'stand' | 'conference' | 'exit'
+  dwell_estimate: number | null
   created_at: string
 }
 

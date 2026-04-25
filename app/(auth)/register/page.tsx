@@ -419,8 +419,7 @@ function RegisterInner() {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {DOMAINS.map((domain, i) => {
                       const selected = selectedDomains.includes(domain);
-                      const colors = [C.tomate, C.piscine, C.citron, C.spirit, C.menthe, C.pourpre, C.tropical, C.framboise];
-                      const colorMap = { tomate: C.tomate, piscine: C.piscine, citron: C.citron, spirit: C.spirit, menthe: C.menthe, pourpre: C.pourpre, tropical: "#00BFB3", framboise: "#E91E63" } as any;
+                      const colors = [C.tomate, C.piscine, C.citron, C.spirit, C.menthe, C.pourpre, "#00BFB3", "#E91E63"];
                       const color = colors[i % colors.length];
                       return (
                         <button

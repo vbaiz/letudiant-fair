@@ -377,7 +377,6 @@ body {
   display: flex;
   align-items: stretch;
   z-index: 50;
-  safe-area-inset-bottom: env(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 

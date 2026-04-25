@@ -664,14 +664,15 @@ export default function SavedPage() {
     const supabase = getSupabase();
 
     // Resolve the currently active event dynamically instead of hardcoding one.
-    const { data: evt } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: evt } = await (supabase as any)
       .from('events')
       .select('id')
       .eq('is_active', true)
       .order('event_date', { ascending: true })
       .limit(1)
-      .maybeSingle();
-    const eventId = evt?.id ?? null;
+      .maybeSingle() as { data: { id: string } | null };
+    const eventId = (evt as { id: string } | null)?.id ?? null;
     setActiveEventId(eventId);
     if (eventId) {
       getAppointmentsForStudent(userId, eventId).then(setAppointments);

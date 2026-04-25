@@ -24,6 +24,8 @@ interface ButtonAsAnchorProps extends ButtonBaseProps {
   href: string;
   onClick?: React.MouseEventHandler<HTMLAnchorElement>;
   type?: undefined;
+  target?: string;
+  rel?: string;
 }
 
 type ButtonProps = ButtonAsButtonProps | ButtonAsAnchorProps;
@@ -53,7 +55,7 @@ export default function Button({
     .join(" ");
 
   if ("href" in rest && rest.href !== undefined) {
-    const { href, onClick } = rest as ButtonAsAnchorProps;
+    const { href, onClick, target, rel } = rest as ButtonAsAnchorProps;
     const anchorStyle = disabled
       ? { pointerEvents: "none" as const, opacity: 0.45, ...style }
       : style;
@@ -61,6 +63,8 @@ export default function Button({
       <a
         href={href}
         onClick={onClick}
+        target={target}
+        rel={rel}
         className={classes}
         aria-disabled={disabled}
         tabIndex={disabled ? -1 : undefined}
