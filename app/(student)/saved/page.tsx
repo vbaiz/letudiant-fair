@@ -2,15 +2,15 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import SectionLabel from '@/components/ui/SectionLabel';
-import { getAppointmentsForStudent, getSchools, getSchoolFormations, getSavedFormations, getSavedFormationsWithDates } from '@/lib/supabase/database';
+import { getAppointmentsForStudent, getSchools, getSchoolFormations, getSavedFormations, getSavedFormationsWithDates, getSavedReels, deleteReelFromWishlist } from '@/lib/supabase/database';
 import { useAuth } from '@/hooks/useAuth';
 import { getSupabase } from '@/lib/supabase/client';
-import type { AppointmentRow, FormationRow } from '@/lib/supabase/types';
+import type { AppointmentRow, FormationRow, SchoolReelRow } from '@/lib/supabase/types';
 
 // ─── User-specific data types ────────────────────────────────────────────────
 // Saved docs/links/downloads persist per authenticated user via the
@@ -318,6 +318,89 @@ function AppointmentCard({ appt }: { appt: { id: string; schoolName: string; con
   );
 }
 
+function SavedReelCard({ reel, onDelete }: { reel: SchoolReelRow & { saved_at: string }; onDelete: (reelId: string) => void }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '14px 16px',
+        background: '#fff',
+        borderBottom: '1px solid var(--le-gray-200)',
+      }}
+    >
+      {/* Icon */}
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 8,
+          background: 'var(--le-blue-light)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 16,
+          flexShrink: 0,
+        }}
+      >
+        🎥
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p
+          style={{
+            fontWeight: 600,
+            fontSize: 13,
+            color: 'var(--le-gray-900)',
+            margin: '0 0 1px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {reel.title}
+        </p>
+        <p className="le-caption" style={{ margin: 0 }}>
+          {formatRelative(reel.saved_at)}
+        </p>
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Button variant="secondary" size="sm" href={reel.video_url} target="_blank">
+          Regarder
+        </Button>
+        <button
+          onClick={() => onDelete(reel.id)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--le-gray-500)',
+            cursor: 'pointer',
+            fontSize: '16px',
+            padding: '6px 8px',
+            borderRadius: '4px',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'var(--le-red)';
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--le-gray-500)';
+            e.currentTarget.style.background = 'transparent';
+          }}
+          title="Delete"
+        >
+          🗑️
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DownloadCard({ dl }: { dl: Download }) {
   const initials = getInitials(dl.schoolName);
   const typeVariant = getTypeVariant(dl.type);
@@ -502,11 +585,13 @@ type SavedSubTab = 'swipe' | 'reels' | 'salon';
 
 export default function SavedPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as TabId) || 'documents';
+  const initialSubTab = (searchParams.get('subtab') as SavedSubTab) || 'swipe';
 
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
-  const [activeSubTab, setActiveSubTab] = useState<SavedSubTab>('swipe');
+  const [activeSubTab, setActiveSubTab] = useState<SavedSubTab>(initialSubTab);
   const [appointments, setAppointments] = useState<(AppointmentRow & { schools?: { name: string; city: string; type: string } })[]>([]);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
 
@@ -514,6 +599,8 @@ export default function SavedPage() {
   const [savedLinks, setSavedLinks] = useState<SavedLink[]>([]);
   const [downloads, setDownloads] = useState<Download[]>([]);
   const [savedFormations, setSavedFormations] = useState<Array<FormationRow & { schoolId: string; schoolName: string; schoolCity: string; schoolType: string }>>([]);
+  const [savedReels, setSavedReels] = useState<(SchoolReelRow & { saved_at: string })[]>([]);
+  const [reelsLoading, setReelsLoading] = useState(true);
 
   // Swipe filters and selection
   const [swipeFilterCity, setSwipeFilterCity] = useState<string>('');
@@ -784,6 +871,39 @@ export default function SavedPage() {
   useEffect(() => {
     console.log('SavedPage: Render - savedFormations:', savedFormations.length, 'savedLinks:', savedLinks.length, 'total liens:', liensCount);
   }, [savedFormations, savedLinks, liensCount]);
+
+  // Load saved reels
+  useEffect(() => {
+    const loadReels = async () => {
+      if (!user?.id) {
+        setReelsLoading(false);
+        return;
+      }
+
+      try {
+        const reels = await getSavedReels(user.id);
+        setSavedReels(reels);
+      } catch (error) {
+        console.error('Failed to load saved reels:', error);
+        setSavedReels([]);
+      } finally {
+        setReelsLoading(false);
+      }
+    };
+
+    loadReels();
+  }, [user?.id]);
+
+  const handleDeleteReel = async (reelId: string) => {
+    if (!user?.id) return;
+
+    try {
+      await deleteReelFromWishlist(user.id, reelId);
+      setSavedReels((prev) => prev.filter((r) => r.id !== reelId));
+    } catch (error) {
+      console.error('Failed to delete reel:', error);
+    }
+  };
 
   const tabs: { id: TabId; label: string; count: number }[] = [
     { id: 'documents', label: 'Documents', count: savedDocs.length },
@@ -1259,9 +1379,61 @@ export default function SavedPage() {
             {/* Reels sub-tab */}
             {activeSubTab === 'reels' && (
               <div>
-                <p style={{ color: 'var(--le-gray-500)', fontSize: 14, textAlign: 'center', padding: '32px 16px' }}>
-                  Fonctionnalité à venir. Les Reels que vous enregistrerez apparaîtront ici.
-                </p>
+                {reelsLoading ? (
+                  <p style={{ color: 'var(--le-gray-500)', fontSize: 14, textAlign: 'center', padding: '32px 16px' }}>
+                    Chargement des reels...
+                  </p>
+                ) : savedReels.length === 0 ? (
+                  <p style={{ color: 'var(--le-gray-500)', fontSize: 14, textAlign: 'center', padding: '32px 16px' }}>
+                    Aucun reel sauvegardé. Enregistrez des reels depuis la section Découvrir pour les retrouver ici.
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      background: '#fff',
+                      borderRadius: 8,
+                      border: '1px solid var(--le-gray-200)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {savedReels.map((reel) => (
+                      <SavedReelCard key={reel.id} reel={reel} onDelete={handleDeleteReel} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Back to Reels button */}
+                {savedReels.length > 0 && (
+                  <div style={{ marginTop: 20, textAlign: 'center' }}>
+                    <button
+                      onClick={() => router.push('/discover?tab=reels')}
+                      style={{
+                        background: 'var(--le-red)',
+                        color: '#fff',
+                        borderRadius: 20,
+                        padding: '10px 18px',
+                        fontSize: 14,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: 'none',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = 'var(--le-red-dark)';
+                        (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)';
+                        (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = 'var(--le-red)';
+                        (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+                        (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+                      }}
+                    >
+                      ← Retour aux Reels
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

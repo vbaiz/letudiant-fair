@@ -3,17 +3,17 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import TinderCard from 'react-tinder-card';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import StripeRule from '@/components/ui/StripeRule';
-import { getSchools, upsertMatch, saveSchoolToWishlist, getSchoolFormations, saveFormationToWishlist, getAllReels } from '@/lib/supabase/database';
+import { getSchools, upsertMatch, saveSchoolToWishlist, getSchoolFormations, saveFormationToWishlist, getAllReels, saveReelToWishlist, getSavedReels, deleteReelFromWishlist } from '@/lib/supabase/database';
 import { getSupabase } from '@/lib/supabase/client';
 import { rankSchoolsForStudent } from '@/lib/supabase/schoolRanking';
 import { rankFormationsForStudent } from '@/lib/supabase/programRanking';
 import { useAuth } from '@/hooks/useAuth';
-import type { SchoolRow, FormationRow, SchoolReelRow } from '@/lib/supabase/types';
+import type { SchoolRow, FormationRow, SchoolReelRow, SavedReelRow } from '@/lib/supabase/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -262,7 +262,17 @@ function ReelCard({ reel, onPlay }: { reel: Reel; onPlay: (reel: Reel) => void; 
 
 // ─── Video modal component ────────────────────────────────────────────────────
 
-function VideoModal({ reel, onClose }: { reel: Reel | null; onClose: () => void }) {
+function VideoModal({
+  reel,
+  onClose,
+  isSaved = false,
+  onSave
+}: {
+  reel: Reel | null;
+  onClose: () => void;
+  isSaved?: boolean;
+  onSave?: (reelId: string, title: string) => void;
+}) {
   if (!reel) return null;
 
   // Detect if URL is YouTube embed
@@ -307,6 +317,45 @@ function VideoModal({ reel, onClose }: { reel: Reel | null; onClose: () => void 
         onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)')}
       >
         ✕
+      </button>
+
+      {/* Save button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSave && !isSaved) {
+            onSave(reel.id, reel.title);
+          }
+        }}
+        disabled={isSaved}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '80px',
+          background: isSaved ? 'rgba(100, 200, 100, 0.3)' : 'rgba(100, 150, 255, 0.2)',
+          border: '1px solid ' + (isSaved ? 'rgba(100, 200, 100, 0.5)' : 'rgba(100, 150, 255, 0.5)'),
+          color: '#fff',
+          fontSize: '14px',
+          fontWeight: '600',
+          padding: '8px 14px',
+          borderRadius: '6px',
+          cursor: isSaved ? 'default' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.2s',
+          opacity: isSaved ? 0.7 : 1,
+        }}
+        onMouseEnter={(e) => {
+          if (!isSaved) {
+            e.currentTarget.style.background = 'rgba(100, 150, 255, 0.3)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = isSaved ? 'rgba(100, 200, 100, 0.3)' : 'rgba(100, 150, 255, 0.2)';
+        }}
+      >
+        {isSaved ? '✅ Saved' : '💾 Save'}
       </button>
 
       {/* Modal content */}
@@ -414,7 +463,9 @@ type FormationWithSchool = FormationRow & {
 export default function DiscoverPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabId>('swipe');
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get('tab') as TabId) || 'swipe';
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [formations, setFormations] = useState<FormationWithSchool[]>([]);
   const [loadingFormations, setLoadingFormations] = useState(true);
   const [loadingReels, setLoadingReels] = useState(true);
@@ -425,7 +476,16 @@ export default function DiscoverPage() {
   const [pendingSaves, setPendingSaves] = useState(0); // Track pending database saves
   const [reels, setReels] = useState<Reel[]>([]); // Load from getAllReels()
   const [playingReelId, setPlayingReelId] = useState<string | null>(null); // Track which reel is playing
+  const [savedReelIds, setSavedReelIds] = useState<Set<string>>(new Set()); // Track saved reels by ID
   const articles: Article[] = []; // TODO: Implement articles once table is wired
+
+  // ── Sync activeTab with URL searchParams ───────────────────────────────────────
+  useEffect(() => {
+    const tab = searchParams.get('tab') as TabId | null;
+    if (tab && (tab === 'swipe' || tab === 'reels' || tab === 'actualites')) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   // ── Load formations from all schools with smart ranking ──────────────────────
   useEffect(() => {
@@ -620,9 +680,9 @@ export default function DiscoverPage() {
         console.log('✅ Loaded', reelData.length, 'reels');
 
         // Transform SchoolReelRow to Reel format for display
-        const transformedReels: Reel[] = reelData.map((reel: SchoolReelRow) => ({
+        const transformedReels: Reel[] = reelData.map((reel: any) => ({
           id: reel.id,
-          schoolName: reel.school_id, // TODO: Fetch actual school name from schools table join when ready
+          schoolName: reel.schools?.name || 'École', // Use school name from join
           title: reel.title,
           description: reel.description || undefined,
           duration: reel.duration_seconds ? `${Math.floor(reel.duration_seconds / 60)}:${String(reel.duration_seconds % 60).padStart(2, '0')}` : '0:00',
@@ -693,6 +753,24 @@ export default function DiscoverPage() {
       }
     } catch (err) {
       console.error('Error in handleSwipe:', err);
+    }
+  };
+
+  const handleSaveReel = async (reelId: string, reelTitle: string) => {
+    if (!user?.id) return;
+
+    try {
+      const result = await saveReelToWishlist(user.id, reelId);
+      setSavedReelIds((prev) => new Set(prev).add(reelId));
+
+      if (result.alreadySaved) {
+        showToast(`ℹ️ ${reelTitle} est déjà sauvegardé`);
+      } else {
+        showToast(`✅ ${reelTitle} sauvegardé !`);
+      }
+    } catch (error) {
+      console.error('Failed to save reel:', error);
+      showToast(`❌ Erreur lors de l'enregistrement du reel`);
     }
   };
 
@@ -795,6 +873,39 @@ export default function DiscoverPage() {
               {pendingSaves > 0 ? '⏳ Enregistrement...' : `${rightCount} intérêt${rightCount !== 1 ? 's' : ''}`}
             </button>
             </>
+          )}
+          {activeTab === 'reels' && savedReelIds.size > 0 && (
+            <button
+              onClick={() => router.push('/saved?tab=liens&subtab=reels')}
+              style={{
+                background: 'var(--le-red)',
+                color: '#fff',
+                borderRadius: 20,
+                padding: '8px 16px',
+                fontSize: 14,
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                border: 'none',
+                fontFamily: 'inherit',
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'var(--le-red-dark)';
+                (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'var(--le-red)';
+                (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+              }}
+            >
+              🎥 {savedReelIds.size} {savedReelIds.size === 1 ? 'reel sauvegardé' : 'reels sauvegardés'}
+            </button>
           )}
         </div>
 
@@ -1199,6 +1310,8 @@ export default function DiscoverPage() {
       <VideoModal
         reel={playingReelId ? reels.find((r) => r.id === playingReelId) || null : null}
         onClose={() => setPlayingReelId(null)}
+        isSaved={playingReelId ? savedReelIds.has(playingReelId) : false}
+        onSave={(reelId, title) => handleSaveReel(reelId, title)}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import { getSupabase } from './client'
-import type { UserRow, EventRow, SchoolRow, ScanRow, LeadRow, MatchRow, GroupRow, AppointmentRow } from './types'
+import type { UserRow, EventRow, SchoolRow, ScanRow, LeadRow, MatchRow, GroupRow, AppointmentRow, SchoolReelRow, SavedReelRow } from './types'
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -45,86 +45,79 @@ export async function getSchoolFormations(schoolId: string) {
 // TODO: Replace with real data from school_reels table once approved
 // Table migration 012_school_reels.sql is ready to use when needed
 
-import type { SchoolReelRow } from './types'
+export async function getAllReels(): Promise<(SchoolReelRow & { school_name?: string })[]> {
+  const supabase = getSupabase()
 
-export async function getAllReels(): Promise<SchoolReelRow[]> {
-  // MOCK DATA - Will be replaced with real database query once approved
-  // Format: Matches SchoolReelRow structure for easy swap later
+  try {
+    const { data, error } = await supabase
+      .from('school_reels')
+      .select('*, schools(name)')
+      .order('published_at', { ascending: false })
 
-  const mockReels: SchoolReelRow[] = [
-    {
-      id: 'reel-001',
-      school_id: 'HEC Paris',
-      title: 'Why Study Business at HEC Paris',
-      description: 'Discover what makes HEC Paris one of Europe\'s leading business schools. Hear from students and faculty about innovation and excellence.',
-      video_url: 'https://www.youtube.com/embed/dE_ZMKVRQko',
-      duration_seconds: 240,
-      thumbnail_color: '#EC1F27',
-      tags: ['Business', 'Education', 'Leadership'],
-      view_count: 4200,
-      published_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'reel-002',
-      school_id: 'Polytechnique',
-      title: 'Engineering Excellence',
-      description: 'Explore engineering education at its finest. Students share their passion for innovation and technology at Polytechnique.',
-      video_url: 'https://www.youtube.com/embed/dQNQUwdaViw',
-      duration_seconds: 280,
-      thumbnail_color: '#0066CC',
-      tags: ['Engineering', 'Innovation', 'Technology'],
-      view_count: 5120,
-      published_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'reel-003',
-      school_id: 'Sorbonne Université',
-      title: 'University Excellence in Research',
-      description: 'Join thousands of researchers advancing human knowledge. Discover research opportunities at Sorbonne Université.',
-      video_url: 'https://www.youtube.com/embed/qNs5fX59aew',
-      duration_seconds: 220,
-      thumbnail_color: '#FFC0D9',
-      tags: ['Research', 'Science', 'Education'],
-      view_count: 3450,
-      published_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      created_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'reel-004',
-      school_id: 'ESSEC',
-      title: 'Building Global Leaders',
-      description: 'ESSEC is committed to developing ethical leaders who will shape the future. Join our vibrant community.',
-      video_url: 'https://www.youtube.com/embed/xclbr8BRmfQ',
-      duration_seconds: 260,
-      thumbnail_color: '#00BFB3',
-      tags: ['Business', 'Leadership', 'Education'],
-      view_count: 4890,
-      published_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'reel-005',
-      school_id: 'ISEN Yncréa',
-      title: 'The Future of Technology',
-      description: 'Cutting-edge tech education for the next generation. ISEN Yncréa prepares students for tomorrow\'s challenges.',
-      video_url: 'https://www.youtube.com/embed/pjTLhAzwuc0',
-      duration_seconds: 300,
-      thumbnail_color: '#E6A800',
-      tags: ['Technology', 'Innovation', 'Engineering'],
-      view_count: 3780,
-      published_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ];
+    if (error) {
+      console.error('Error fetching reels:', error)
+      return []
+    }
 
-  return mockReels;
+    return data || []
+  } catch (err) {
+    console.error('Failed to fetch reels:', err)
+    return []
+  }
+}
+
+// Save a reel to user's wishlist
+export async function saveReelToWishlist(userId: string, reelId: string): Promise<{ alreadySaved: boolean }> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('user_saved_reels')
+    .insert([{ user_id: userId, reel_id: reelId }])
+
+  if (error) {
+    // Check if it's a duplicate key error
+    if (error.message.includes('duplicate key')) {
+      return { alreadySaved: true }
+    }
+    throw new Error(`Failed to save reel: ${error.message}`)
+  }
+
+  return { alreadySaved: false }
+}
+
+// Get all reels saved by a user with full reel details
+export async function getSavedReels(userId: string): Promise<(SchoolReelRow & { saved_at: string })[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('user_saved_reels')
+    .select(`
+      saved_at,
+      reel:reel_id(*)
+    `)
+    .eq('user_id', userId)
+    .order('saved_at', { ascending: false })
+
+  if (error) {
+    console.error('Failed to fetch saved reels:', error)
+    throw new Error(`Failed to fetch saved reels: ${error.message}`)
+  }
+
+  // Map the joined data to flatten it
+  return (data || []).map((row: any) => ({
+    ...row.reel,
+    saved_at: row.saved_at
+  }))
+}
+
+// Delete a reel from user's wishlist
+export async function deleteReelFromWishlist(userId: string, reelId: string): Promise<void> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('user_saved_reels')
+    .delete()
+    .eq('user_id', userId)
+    .eq('reel_id', reelId)
+
+  if (error) throw new Error(`Failed to delete saved reel: ${error.message}`)
 }
 
 // ─── Stands ───────────────────────────────────────────────────────────────────
