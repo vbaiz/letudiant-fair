@@ -795,125 +795,118 @@ export default function DiscoverPage() {
                       overflow: 'hidden',
                       boxShadow: '0 8px 40px rgba(26,26,26,0.15)',
                       cursor: 'grab',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'flex-end',
                     }}
                   >
-                    {!flipped.has(currentCard.id) ? (
-                    <div
-                      style={{
-                        padding: '20px 16px 16px',
-                      }}
-                    >
-                        {/* Background emoji */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -60%)',
-                            fontSize: 100,
-                            opacity: 0.25,
-                            userSelect: 'none',
-                          }}
-                        >
-                          {emojiFor(formations.indexOf(currentCard))}
-                        </div>
+                    {/* Flip container with 3D animation */}
+                    <div className="flip-container">
+                      <div className={`flip-card ${flipped.has(currentCard.id) ? 'flipped' : ''}`}>
 
-                        <div className="school-card-overlay">
-                          <p
+                        {/* Front side */}
+                        <div className="flip-card-front" style={{ background: gradientFor(formations.indexOf(currentCard)) }}>
+                          {/* Background emoji */}
+                          <div
                             style={{
-                              color: '#fff',
-                              fontWeight: 700,
-                              fontSize: 20,
-                              margin: '0 0 6px',
-                              lineHeight: 1.2,
+                              position: 'absolute',
+                              top: '50%',
+                              left: '50%',
+                              transform: 'translate(-50%, -60%)',
+                              fontSize: 100,
+                              opacity: 0.25,
+                              userSelect: 'none',
                             }}
                           >
-                            {currentCard.name}
-                          </p>
-                          <p
-                            style={{
-                              color: 'rgba(255,255,255,0.9)',
-                              fontSize: 14,
-                              fontWeight: 500,
-                              margin: '0 0 10px',
-                            }}
-                          >
-                            {currentCard.schoolName}
-                          </p>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                            <Tag variant={typeVariant(currentCard.schoolType)}>{currentCard.schoolType}</Tag>
-                            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
-                              📍 {currentCard.schoolCity}
-                            </span>
+                            {emojiFor(formations.indexOf(currentCard))}
                           </div>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {(currentCard.fields ?? []).slice(0, 3).map((f) => (
-                              <span
-                                key={f}
-                                style={{
-                                  background: 'rgba(255,255,255,0.18)',
-                                  color: '#fff',
-                                  padding: '3px 10px',
-                                  borderRadius: 20,
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  border: '1px solid rgba(255,255,255,0.25)',
-                                }}
-                              >
-                                {f}
+
+                          <div className="school-card-overlay">
+                            <p
+                              style={{
+                                color: '#fff',
+                                fontWeight: 700,
+                                fontSize: 20,
+                                margin: '0 0 6px',
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {currentCard.name}
+                            </p>
+                            <p
+                              style={{
+                                color: 'rgba(255,255,255,0.9)',
+                                fontSize: 14,
+                                fontWeight: 500,
+                                margin: '0 0 10px',
+                              }}
+                            >
+                              {currentCard.schoolName}
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                              <Tag variant={typeVariant(currentCard.schoolType)}>{currentCard.schoolType}</Tag>
+                              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
+                                📍 {currentCard.schoolCity}
                               </span>
-                            ))}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {(currentCard.fields ?? []).slice(0, 3).map((f) => (
+                                <span
+                                  key={f}
+                                  style={{
+                                    background: 'rgba(255,255,255,0.18)',
+                                    color: '#fff',
+                                    padding: '3px 10px',
+                                    borderRadius: 20,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    border: '1px solid rgba(255,255,255,0.25)',
+                                  }}
+                                >
+                                  {f}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                    <div
-                      style={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        padding: '20px 16px 16px',
-                        color: 'white',
-                      }}
-                    >
-                        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#fff' }}>
-                          {currentCard.name}
-                        </h3>
 
-                        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.95)', lineHeight: 1.5 }}>
-                          {currentCard.duration && (
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>Durée:</strong> {currentCard.duration}
-                            </p>
-                          )}
-                          {currentCard.level && (
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>Niveau:</strong> {currentCard.level}
-                            </p>
-                          )}
-                          {currentCard.study_modality && (
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>Modalité:</strong> {currentCard.study_modality}
-                            </p>
-                          )}
-                          {currentCard.admission_requirements && (
-                            <p style={{ margin: '4px 0', fontSize: 12 }}>
-                              <strong>Admission:</strong> {currentCard.admission_requirements}
-                            </p>
-                          )}
-                          {currentCard.cost !== null && currentCard.cost !== undefined && (
-                            <p style={{ margin: '4px 0' }}>
-                              <strong>Coût:</strong> {currentCard.cost > 0 ? `${currentCard.cost.toLocaleString()}€` : 'Gratuit'}
-                            </p>
-                          )}
+                        {/* Back side */}
+                        <div className="flip-card-back" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '20px 16px 16px' }}>
+                          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#fff' }}>
+                            {currentCard.name}
+                          </h3>
+
+                          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.95)', lineHeight: 1.5, marginTop: 12 }}>
+                            {currentCard.duration && (
+                              <p style={{ margin: '4px 0' }}>
+                                <strong>Durée:</strong> {currentCard.duration}
+                              </p>
+                            )}
+                            {currentCard.level && (
+                              <p style={{ margin: '4px 0' }}>
+                                <strong>Niveau:</strong> {currentCard.level}
+                              </p>
+                            )}
+                            {currentCard.study_modality && (
+                              <p style={{ margin: '4px 0' }}>
+                                <strong>Modalité:</strong> {currentCard.study_modality}
+                              </p>
+                            )}
+                            {currentCard.admission_requirements && (
+                              <p style={{ margin: '4px 0', fontSize: 12 }}>
+                                <strong>Admission:</strong> {currentCard.admission_requirements}
+                              </p>
+                            )}
+                            {currentCard.cost !== null && currentCard.cost !== undefined && (
+                              <p style={{ margin: '4px 0' }}>
+                                <strong>Coût:</strong> {currentCard.cost > 0 ? `${currentCard.cost.toLocaleString()}€` : 'Gratuit'}
+                              </p>
+                            )}
+                          </div>
+
+                          <p style={{ fontSize: 12, margin: '8px 0 0 0', fontStyle: 'italic', color: 'rgba(255,255,255,0.85)' }}>
+                            Cliquez sur 💡 pour fermer
+                          </p>
                         </div>
-
-                        <p style={{ fontSize: 12, margin: '8px 0 0 0', fontStyle: 'italic', color: 'rgba(255,255,255,0.85)' }}>
-                          Cliquez sur 💡 pour fermer
-                        </p>
                       </div>
-                    )}
+                    </div>
                   </div>
               </TinderCard>
             ) : (
