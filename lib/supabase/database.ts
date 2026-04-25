@@ -482,61 +482,72 @@ export async function getSavedFormations(formationIds: string[]) {
   })) ?? []
 }
 
-// ─── Get saved formations with save date (from user_saved_formations table) ───
+// ─── Get saved formations with save date (from wishlist + user_saved_formations table) ───
 
 export async function getSavedFormationsWithDates(userId: string) {
   console.log('📅 getSavedFormationsWithDates() - userId:', userId);
 
   const supabase = getSupabase()
 
-  // Get all saved formations with their save timestamps
-  const { data: savedRecords, error: recordError } = await supabase
-    .from('user_saved_formations')
-    .select('formation_id, saved_at')
-    .eq('user_id', userId)
-    .order('saved_at', { ascending: false })
+  // Step 1: Get user's wishlist (all saved formations)
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('wishlist')
+    .eq('id', userId)
+    .single()
 
-  if (recordError) {
-    console.error('❌ Error fetching saved formation records:', recordError);
+  if (userError) {
+    console.error('❌ Error fetching user wishlist:', userError);
     return []
   }
 
-  if (!savedRecords || savedRecords.length === 0) {
+  const wishlist = (userData?.wishlist as string[]) ?? [];
+  console.log('💾 Wishlist has', wishlist.length, 'formations');
+
+  if (wishlist.length === 0) {
     console.log('⚠️ No saved formations found');
     return []
   }
 
-  const formationIds = savedRecords.map((r: any) => r.formation_id)
-  console.log('🔍 Found', formationIds.length, 'saved formations');
+  // Step 2: Get save dates from user_saved_formations table
+  const { data: savedRecords } = await supabase
+    .from('user_saved_formations')
+    .select('formation_id, saved_at')
+    .eq('user_id', userId);
 
-  // Get formation details
+  // Create map of formation_id → saved_at
+  const saveDatesMap = new Map(
+    savedRecords?.map((r: any) => [r.formation_id, r.saved_at]) ?? []
+  );
+  console.log('📅 Found save dates for', saveDatesMap.size, 'formations');
+
+  // Step 3: Get formation details for all wishlist items
   const { data: formations, error: formError } = await supabase
     .from('formations')
     .select('*, schools(name, city, type)')
-    .in('id', formationIds)
+    .in('id', wishlist);
 
   if (formError) {
     console.error('❌ Error fetching formation details:', formError);
     return []
   }
 
-  // Map formations with their save dates
-  const formationsMap = new Map(formations?.map((f: any) => [f.id, f]) ?? []);
-  const result = savedRecords
-    .map((record: any) => {
-      const formation = formationsMap.get(record.formation_id);
-      if (!formation) return null;
-
-      return {
-        ...formation,
-        schoolId: formation.school_id,
-        schoolName: formation.schools?.name ?? 'École',
-        schoolCity: formation.schools?.city ?? '',
-        schoolType: formation.schools?.type ?? '',
-        saved_at: record.saved_at, // ← The actual save date, not created_at
-      };
-    })
-    .filter((f: any) => f !== null);
+  // Step 4: Map formations with their save dates (if available)
+  const result = formations
+    ?.map((f: any) => ({
+      ...f,
+      schoolId: f.school_id,
+      schoolName: f.schools?.name ?? 'École',
+      schoolCity: f.schools?.city ?? '',
+      schoolType: f.schools?.type ?? '',
+      saved_at: saveDatesMap.get(f.id) ?? f.created_at, // ← Use saved_at if available, else fall back to formation created_at
+    }))
+    .sort((a: any, b: any) => {
+      // Sort by saved_at descending (newest first)
+      const dateA = new Date(a.saved_at).getTime();
+      const dateB = new Date(b.saved_at).getTime();
+      return dateB - dateA;
+    }) ?? [];
 
   console.log('✅ Loaded', result.length, 'formations with save dates');
   return result;

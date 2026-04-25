@@ -519,8 +519,50 @@ export default function SavedPage() {
   const [swipeFilterCity, setSwipeFilterCity] = useState<string>('');
   const [swipeFilterProgram, setSwipeFilterProgram] = useState<string>('');
   const [swipeFilterSort, setSwipeFilterSort] = useState<'asc' | 'desc' | 'none'>('none');
-  const [swipeFilterDate, setSwipeFilterDate] = useState<string>('');
+  const [swipeFilterDateRange, setSwipeFilterDateRange] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all'); // Default to showing all formations
+  const [swipeFilterDateStart, setSwipeFilterDateStart] = useState<string>('');
+  const [swipeFilterDateEnd, setSwipeFilterDateEnd] = useState<string>('');
   const [selectedSwipes, setSelectedSwipes] = useState<Set<string>>(new Set());
+
+  // Helper: Get date range based on filter type
+  const getDateRange = (): { start: Date | null; end: Date | null } => {
+    const today = new Date();
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+
+    if (swipeFilterDateRange === 'today') {
+      const startDate = new Date(today);
+      startDate.setHours(0, 0, 0, 0);
+      return { start: startDate, end: endDate };
+    } else if (swipeFilterDateRange === 'week') {
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+      return { start: startDate, end: endDate };
+    } else if (swipeFilterDateRange === 'month') {
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 30);
+      startDate.setHours(0, 0, 0, 0);
+      return { start: startDate, end: endDate };
+    } else if (swipeFilterDateRange === 'custom' && swipeFilterDateStart && swipeFilterDateEnd) {
+      return {
+        start: new Date(swipeFilterDateStart),
+        end: new Date(swipeFilterDateEnd + 'T23:59:59'),
+      };
+    }
+    return { start: null, end: null };
+  };
+
+  // Clear all filters
+  const handleClearAllFilters = () => {
+    setSwipeFilterCity('');
+    setSwipeFilterProgram('');
+    setSwipeFilterSort('none');
+    setSwipeFilterDateRange('all');
+    setSwipeFilterDateStart('');
+    setSwipeFilterDateEnd('');
+    showToast('🧹 Filtres effacés');
+  };
 
   // Toast notification
   const [toast, setToast] = useState<string | null>(null);
@@ -666,11 +708,14 @@ export default function SavedPage() {
       const matchCity = !swipeFilterCity || f.schoolCity === swipeFilterCity;
       const matchProgram = !swipeFilterProgram || f.name.toLowerCase().includes(swipeFilterProgram.toLowerCase());
 
-      // Filter by date: match formations saved on the selected date
+      // Filter by date range
       let matchDate = true;
-      if (swipeFilterDate && (f as any).saved_at) {
-        const savedDate = new Date((f as any).saved_at).toISOString().split('T')[0]; // YYYY-MM-DD
-        matchDate = savedDate === swipeFilterDate;
+      if (swipeFilterDateRange !== 'all' && (f as any).saved_at) {
+        const { start, end } = getDateRange();
+        if (start && end) {
+          const savedDate = new Date((f as any).saved_at);
+          matchDate = savedDate >= start && savedDate <= end;
+        }
       }
 
       return matchCity && matchProgram && matchDate;
@@ -957,23 +1002,145 @@ export default function SavedPage() {
                           ))}
                         </select>
 
-                        {/* Date picker */}
-                        <input
-                          type="date"
-                          value={swipeFilterDate}
-                          onChange={(e) => setSwipeFilterDate(e.target.value)}
-                          style={{
-                            padding: '8px 12px',
-                            background: swipeFilterDate ? 'var(--le-red)' : 'var(--le-gray-100)',
-                            color: swipeFilterDate ? '#fff' : 'var(--le-gray-700)',
-                            border: 'none',
-                            borderRadius: 6,
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            fontSize: 13,
-                          }}
-                        />
+                        {/* Date range filter buttons - always visible */}
+                        <div style={{ display: 'flex', gap: 6, flex: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <button
+                            onClick={() => setSwipeFilterDateRange('today')}
+                            style={{
+                              padding: '6px 10px',
+                              background: swipeFilterDateRange === 'today' ? 'var(--le-red)' : 'var(--le-gray-100)',
+                              color: swipeFilterDateRange === 'today' ? '#fff' : 'var(--le-gray-700)',
+                              border: 'none',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              fontSize: 11,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            Aujourd'hui
+                          </button>
+                          <button
+                            onClick={() => setSwipeFilterDateRange('week')}
+                            style={{
+                              padding: '6px 10px',
+                              background: swipeFilterDateRange === 'week' ? 'var(--le-red)' : 'var(--le-gray-100)',
+                              color: swipeFilterDateRange === 'week' ? '#fff' : 'var(--le-gray-700)',
+                              border: 'none',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              fontSize: 11,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            Semaine
+                          </button>
+                          <button
+                            onClick={() => setSwipeFilterDateRange('month')}
+                            style={{
+                              padding: '6px 10px',
+                              background: swipeFilterDateRange === 'month' ? 'var(--le-red)' : 'var(--le-gray-100)',
+                              color: swipeFilterDateRange === 'month' ? '#fff' : 'var(--le-gray-700)',
+                              border: 'none',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              fontSize: 11,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            Mois
+                          </button>
+                          <button
+                            onClick={() => setSwipeFilterDateRange('custom')}
+                            style={{
+                              padding: '6px 10px',
+                              background: swipeFilterDateRange === 'custom' ? 'var(--le-red)' : 'var(--le-gray-100)',
+                              color: swipeFilterDateRange === 'custom' ? '#fff' : 'var(--le-gray-700)',
+                              border: 'none',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              fontSize: 11,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            Perso.
+                          </button>
+                          {/* TOUS button - always visible */}
+                          <button
+                            onClick={() => {
+                              console.log('🔄 Clearing date filter');
+                              setSwipeFilterDateRange('all');
+                            }}
+                            style={{
+                              padding: '6px 10px',
+                              background: swipeFilterDateRange === 'all' ? 'var(--le-blue)' : 'var(--le-gray-100)',
+                              color: swipeFilterDateRange === 'all' ? '#fff' : 'var(--le-gray-700)',
+                              border: 'none',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              fontWeight: 700,
+                              fontSize: 11,
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="Afficher toutes les formations"
+                          >
+                            🔄 Tous
+                          </button>
+                        </div>
+
+                        {/* Clear Filters button */}
+                        {(swipeFilterCity || swipeFilterProgram || swipeFilterDateRange !== 'all' || swipeFilterSort !== 'none') && (
+                          <button
+                            onClick={handleClearAllFilters}
+                            style={{
+                              padding: '8px 12px',
+                              background: 'var(--le-gray-300)',
+                              color: 'var(--le-gray-700)',
+                              border: 'none',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              fontSize: 12,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            ✕ Effacer
+                          </button>
+                        )}
                       </div>
+
+                      {/* Custom date range (hidden by default, shown when 'custom' selected) */}
+                      {swipeFilterDateRange === 'custom' && (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingTop: 8 }}>
+                          <label style={{ fontSize: 12, color: 'var(--le-gray-600)' }}>Du:</label>
+                          <input
+                            type="date"
+                            value={swipeFilterDateStart}
+                            onChange={(e) => setSwipeFilterDateStart(e.target.value)}
+                            style={{
+                              padding: '6px 10px',
+                              border: '1px solid var(--le-gray-300)',
+                              borderRadius: 6,
+                              fontSize: 12,
+                            }}
+                          />
+                          <label style={{ fontSize: 12, color: 'var(--le-gray-600)' }}>Au:</label>
+                          <input
+                            type="date"
+                            value={swipeFilterDateEnd}
+                            onChange={(e) => setSwipeFilterDateEnd(e.target.value)}
+                            style={{
+                              padding: '6px 10px',
+                              border: '1px solid var(--le-gray-300)',
+                              borderRadius: 6,
+                              fontSize: 12,
+                            }}
+                          />
+                        </div>
+                      )}
 
                       {/* Selection Actions */}
                       {savedFormations.length > 0 && (
@@ -1010,9 +1177,9 @@ export default function SavedPage() {
                                 onClick={() => showToast('🏫 Recherche en salon - Prochainement')}
                                 style={{
                                   padding: '6px 12px',
-                                  background: 'var(--le-blue)',
-                                  color: '#fff',
-                                  border: 'none',
+                                  background: '#fff',
+                                  color: '#000',
+                                  border: '2px solid var(--le-red)',
                                   borderRadius: 6,
                                   cursor: 'pointer',
                                   fontSize: 12,
