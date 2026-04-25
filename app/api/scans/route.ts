@@ -52,6 +52,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // ── On entry scan: confirm all pending appointments for this event ───────────
+  if (channel === 'entry' && eventId) {
+    await supabase
+      .from('appointments')
+      .update({ status: 'confirmed' })
+      .eq('student_id', user.id)
+      .eq('event_id', eventId)
+      .eq('status', 'pending')
+      .catch((err: Error) => console.error('[scans] appointment confirm failed:', err))
+  }
+
   // ── Persist dwell on user profile after exit scan ────────────────────────────
   if (channel === 'exit' && computedDwell !== null) {
     await supabase

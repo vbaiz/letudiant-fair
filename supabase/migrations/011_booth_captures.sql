@@ -153,5 +153,5 @@ drop trigger if exists trigger_merge_booth_on_user_create on public.users;
 create trigger trigger_merge_booth_on_user_create
   after insert on public.users
   for each row
-  execute function public.merge_booth_capture_to_user(new.id, new.email);
+  execute procedure merge_booth_capture_to_user(new.id, new.email);
 

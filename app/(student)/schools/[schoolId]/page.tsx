@@ -22,17 +22,16 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ schoolI
   const [bookingSlot, setBookingSlot] = useState<string | null>(null)
   const [bookingNote, setBookingNote] = useState('')
   const [bookingLoading, setBookingLoading] = useState(false)
-  const [hasEntryScanned, setHasEntryScanned] = useState(false)
+  const [activeEventId, setActiveEventId] = useState<string | null>(null)
+  const [activeEventDate, setActiveEventDate] = useState<string | null>(null)
 
   useEffect(() => {
     track('school_view', { school_id: schoolId, source: 'direct' })
     async function load() {
       const supabase = getSupabase()
       const { data: { user } } = await supabase.auth.getUser()
-      const [schoolRes, formationsRes] = await Promise.all([
-        supabase.from('schools').select('*').eq('id', schoolId).single(),
-        supabase.from('formations').select('*').eq('school_id', schoolId).order('name'),
-      ])
+      const schoolRes = await supabase.from('schools').select('*').eq('id', schoolId).single()
+      const formationsRes = await supabase.from('formations').select('*').eq('school_id', schoolId).order('name')
       if (schoolRes.data) setSchool(schoolRes.data)
       setFormations(formationsRes.data ?? [])
       if (user) setUserId(user.id)
@@ -52,29 +51,24 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ schoolI
         }
       }
 
-      // Load existing appointment for this school (use the first upcoming event)
+      // Load the closest event (future or past) and any existing appointment
       if (user) {
         const { data: events } = await supabase
           .from('events')
-          .select('id')
-          .gte('event_date', new Date().toISOString().slice(0, 10))
-          .order('event_date')
-          .limit(1)
-        if (events?.[0]) {
-          const existing = await getStudentAppointmentForSchool(user.id, schoolId, events[0].id)
+          .select('id, event_date')
+          .order('event_date', { ascending: true })
+        type EventSlim = { id: string; event_date: string }
+        const closest = (events as EventSlim[] | null)?.reduce<EventSlim | null>((best, ev) => {
+          if (!best) return ev
+          const diff = (d: string) => Math.abs(new Date(d).getTime() - Date.now())
+          return diff(ev.event_date) < diff(best.event_date) ? ev : best
+        }, null)
+        if (closest) {
+          setActiveEventId(closest.id)
+          setActiveEventDate(closest.event_date.slice(0, 10))
+          const existing = await getStudentAppointmentForSchool(user.id, schoolId, closest.id)
           setAppointment(existing)
         }
-        // Gate RDV: check if student has scanned entry today
-        const today = new Date().toISOString().slice(0, 10)
-        const { data: entryScan } = await supabase
-          .from('scans')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('channel', 'entry')
-          .gte('created_at', today)
-          .limit(1)
-          .maybeSingle()
-        setHasEntryScanned(!!entryScan)
       }
       setLoading(false)
     }
@@ -82,22 +76,16 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ schoolI
   }, [schoolId])
 
   async function handleBook() {
-    if (!bookingSlot) return
+    if (!bookingSlot || !activeEventId) return
     setBookingLoading(true)
     try {
       const supabase = getSupabase()
       const { data: { user } } = await supabase.auth.getUser()
-      const { data: events } = await supabase
-        .from('events')
-        .select('id')
-        .gte('event_date', new Date().toISOString().slice(0, 10))
-        .order('event_date')
-        .limit(1)
-      if (!user || !events?.[0]) { toast('Connectez-vous pour réserver', 'error'); return }
+      if (!user) { toast('Connectez-vous pour réserver', 'error'); return }
       const appt = await bookAppointment({
         student_id: user.id,
         school_id: schoolId,
-        event_id: events[0].id,
+        event_id: activeEventId,
         slot_time: bookingSlot,
         student_notes: bookingNote || null,
       })
@@ -173,7 +161,7 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ schoolI
   return (
     <div style={{ minHeight: '100vh', background: '#F7F7F7', paddingBottom: 40, fontFamily: 'system-ui, sans-serif' }}>
       {/* Hero */}
-      <div style={{ background: 'linear-gradient(135deg,#1A1A1A,#3A3A3A)', padding: '52px 20px 24px', color: '#fff', position: 'relative' }}>
+      <div style={{ background: school.cover_image_url ? `linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)), url(${school.cover_image_url}) center/cover no-repeat` : 'linear-gradient(135deg,#1A1A1A,#3A3A3A)', padding: '52px 20px 24px', color: '#fff', position: 'relative' }}>
         <a href="/schools" style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16 }}>← Retour</a>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
@@ -204,12 +192,51 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ schoolI
       <div style={{ padding: '20px 20px' }}>
         {activeTab === 'info' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {school.description && (
+            {/* Description */}
+            {school.description ? (
               <div style={{ background: '#fff', borderRadius: 16, padding: 16 }}>
                 <h3 style={{ margin: '0 0 8px', fontSize: '0.9375rem', fontWeight: 700 }}>Présentation</h3>
                 <p style={{ margin: 0, fontSize: '0.875rem', color: '#4B4B4B', lineHeight: 1.6 }}>{school.description}</p>
               </div>
+            ) : (
+              <div style={{ background: '#FFF9E6', border: '1px solid #FCD716', borderRadius: 12, padding: '12px 16px', fontSize: '0.8125rem', color: '#92400e' }}>
+                💡 L&apos;exposant n&apos;a pas encore renseigné de présentation.
+              </div>
             )}
+
+            {/* Quick facts */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: 16 }}>
+              <h3 style={{ margin: '0 0 12px', fontSize: '0.9375rem', fontWeight: 700 }}>En bref</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 18, width: 28 }}>🏛️</span>
+                  <div>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#6B6B6B' }}>Type</p>
+                    <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#1A1A1A' }}>{school.type || '—'}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 18, width: 28 }}>📍</span>
+                  <div>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#6B6B6B' }}>Ville</p>
+                    <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#1A1A1A' }}>{school.city || '—'}</p>
+                  </div>
+                </div>
+                {school.tuition_fee != null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18, width: 28 }}>💰</span>
+                    <div>
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: '#6B6B6B' }}>Frais de scolarité</p>
+                      <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#1A1A1A' }}>
+                        {school.tuition_fee === 0 ? 'Gratuit' : `${school.tuition_fee.toLocaleString('fr-FR')} €/an`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Website */}
             {school.website && (
               <a href={school.website} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
                 <span style={{ fontSize: 20 }}>🌐</span>
@@ -219,14 +246,30 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ schoolI
                 </div>
               </a>
             )}
-            <div style={{ background: '#fff', borderRadius: 16, padding: 16 }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: '0.9375rem', fontWeight: 700 }}>Filières ciblées</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {(school.target_fields ?? []).map(f => (
-                  <span key={f} style={{ background: '#F5F5F5', borderRadius: 8, padding: '5px 12px', fontSize: '0.8125rem', fontWeight: 500, color: '#4B4B4B' }}>{f}</span>
-                ))}
+
+            {/* Target levels */}
+            {(school.target_levels ?? []).length > 0 && (
+              <div style={{ background: '#fff', borderRadius: 16, padding: 16 }}>
+                <h3 style={{ margin: '0 0 12px', fontSize: '0.9375rem', fontWeight: 700 }}>Niveaux recrutés</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(school.target_levels ?? []).map(l => (
+                    <span key={l} style={{ background: '#FFF0F1', border: '1px solid #EC1F27', borderRadius: 8, padding: '5px 12px', fontSize: '0.8125rem', fontWeight: 500, color: '#C41520' }}>{l}</span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Target fields */}
+            {(school.target_fields ?? []).length > 0 && (
+              <div style={{ background: '#fff', borderRadius: 16, padding: 16 }}>
+                <h3 style={{ margin: '0 0 12px', fontSize: '0.9375rem', fontWeight: 700 }}>Filières proposées</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(school.target_fields ?? []).map(f => (
+                    <span key={f} style={{ background: '#F5F5F5', borderRadius: 8, padding: '5px 12px', fontSize: '0.8125rem', fontWeight: 500, color: '#4B4B4B' }}>{f}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -246,63 +289,47 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ schoolI
         )}
 
         {activeTab === 'rdv' && (
-          !hasEntryScanned ? (
-            /* ── Entry scan gate ─────────────────────────────────────────── */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ background: '#FFF7E0', border: '1.5px solid #FCD716', borderRadius: 14, padding: 24, textAlign: 'center' }}>
-                <p style={{ fontSize: 40, margin: '0 0 12px' }}>🔒</p>
-                <p style={{ margin: '0 0 8px', fontWeight: 800, fontSize: '1rem', color: '#92400e' }}>
-                  Rendez-vous réservés aux visiteurs présents
-                </p>
-                <p style={{ margin: '0 0 16px', fontSize: '0.875rem', color: '#78350f', lineHeight: 1.5 }}>
-                  Pour éviter les no-shows, les rendez-vous sont disponibles uniquement une fois votre présence confirmée au salon.
-                </p>
-                <a
-                  href="/qr"
-                  style={{ display: 'inline-block', background: '#EC1F27', color: '#fff', fontWeight: 700, fontSize: '0.9375rem', padding: '12px 24px', borderRadius: 12, textDecoration: 'none' }}
-                >
-                  Scanne ton QR à l&apos;entrée →
-                </a>
-              </div>
-              <div style={{ background: '#F4F4F4', borderRadius: 12, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center' }}>
-                <span style={{ fontSize: 18 }}>💡</span>
-                <p style={{ margin: 0, fontSize: '0.8125rem', color: '#6B6B6B', lineHeight: 1.4 }}>
-                  Présente ton QR code au staff à l&apos;entrée du salon. Une fois scanné, reviens ici pour réserver ton créneau.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <RdvTab
-              school={school}
-              appointment={appointment}
-              bookingSlot={bookingSlot}
-              bookingNote={bookingNote}
-              bookingLoading={bookingLoading}
-              onSelectSlot={setBookingSlot}
-              onNoteChange={setBookingNote}
-              onBook={handleBook}
-              onCancel={handleCancel}
-            />
-          )
+          <RdvTab
+            school={school}
+            appointment={appointment}
+            bookingSlot={bookingSlot}
+            bookingNote={bookingNote}
+            bookingLoading={bookingLoading}
+            eventDate={activeEventDate}
+            onSelectSlot={setBookingSlot}
+            onNoteChange={setBookingNote}
+            onBook={handleBook}
+            onCancel={handleCancel}
+          />
         )}
 
-        {activeTab === 'stats' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {[
-              { label: 'Bac Général', value: school.nb_accepted_bac_g ?? '—', icon: '📘' },
-              { label: 'Bac Techno', value: school.nb_accepted_bac_t ?? '—', icon: '📗' },
-              { label: 'Bac Pro', value: school.nb_accepted_bac_p ?? '—', icon: '📙' },
-              { label: 'Insertion pro', value: school.rate_professional_insertion ? `${school.rate_professional_insertion}%` : '—', icon: '💼' },
-              { label: 'Frais de scolarité', value: school.tuition_fee ? `${school.tuition_fee?.toLocaleString('fr-FR')} €` : '—', icon: '💰' },
-            ].map(stat => (
-              <div key={stat.label} style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', textAlign: 'center' }}>
-                <p style={{ margin: '0 0 4px', fontSize: 24 }}>{stat.icon}</p>
-                <p style={{ margin: '0 0 3px', fontSize: '1.0625rem', fontWeight: 800, color: '#EC1F27' }}>{stat.value}</p>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: '#6B6B6B' }}>{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
+        {activeTab === 'stats' && (() => {
+          const stats = [
+            { label: 'Bac Général acceptés', value: school.nb_accepted_bac_g, display: school.nb_accepted_bac_g != null ? String(school.nb_accepted_bac_g) : null, icon: '📘' },
+            { label: 'Bac Techno acceptés',  value: school.nb_accepted_bac_t, display: school.nb_accepted_bac_t != null ? String(school.nb_accepted_bac_t) : null, icon: '📗' },
+            { label: 'Bac Pro acceptés',     value: school.nb_accepted_bac_p, display: school.nb_accepted_bac_p != null ? String(school.nb_accepted_bac_p) : null, icon: '📙' },
+            { label: 'Insertion pro',        value: school.rate_professional_insertion, display: school.rate_professional_insertion != null ? `${school.rate_professional_insertion}%` : null, icon: '💼' },
+            { label: 'Frais de scolarité',   value: school.tuition_fee, display: school.tuition_fee != null ? (school.tuition_fee === 0 ? 'Gratuit' : `${school.tuition_fee.toLocaleString('fr-FR')} €/an`) : null, icon: '💰' },
+          ];
+          const hasAny = stats.some(s => s.display !== null);
+          return hasAny ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {stats.map(stat => (
+                <div key={stat.label} style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', textAlign: 'center' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: 24 }}>{stat.icon}</p>
+                  <p style={{ margin: '0 0 3px', fontSize: '1.0625rem', fontWeight: 800, color: stat.display ? '#EC1F27' : '#D4D4D4' }}>{stat.display ?? '—'}</p>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#6B6B6B' }}>{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#6B6B6B' }}>
+              <p style={{ fontSize: 36, margin: '0 0 12px' }}>📊</p>
+              <p style={{ fontWeight: 600, margin: '0 0 6px', color: '#3D3D3D' }}>Chiffres non encore renseignés</p>
+              <p style={{ fontSize: '0.875rem', margin: 0 }}>L&apos;établissement n&apos;a pas encore publié ses statistiques.</p>
+            </div>
+          );
+        })()}
       </div>
     </div>
   )
@@ -329,6 +356,7 @@ function RdvTab({
   bookingSlot,
   bookingNote,
   bookingLoading,
+  eventDate,
   onSelectSlot,
   onNoteChange,
   onBook,
@@ -339,13 +367,16 @@ function RdvTab({
   bookingSlot: string | null
   bookingNote: string
   bookingLoading: boolean
+  eventDate: string | null
   onSelectSlot: (slot: string) => void
   onNoteChange: (note: string) => void
   onBook: () => void
   onCancel: () => void
 }) {
-  // Upcoming fair date (hardcoded as next-fair placeholder until events are seeded)
-  const fairDate = 'Samedi 7 juin 2026'
+  const fairDate = eventDate
+    ? new Date(eventDate + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : '—'
+  const datePrefix = eventDate ?? '2026-06-07'
 
   if (appointment) {
     const slotKey = new Date(appointment.slot_time).toTimeString().slice(0, 5)
@@ -362,8 +393,7 @@ function RdvTab({
         <div style={{ background: '#F0F4FF', border: '1px solid #C5D3F0', borderRadius: 12, padding: 16 }}>
           <p style={{ margin: '0 0 6px', fontSize: '0.875rem', fontWeight: 700, color: '#0066CC' }}>💡 Ce RDV booste ton profil</p>
           <p style={{ margin: 0, fontSize: '0.8125rem', color: '#4B4B4B', lineHeight: 1.5 }}>
-            Prendre un rendez-vous avant le salon est le signal d&apos;intérêt le plus fort dans notre système de scoring.
-            Ton profil remonte en priorité dans la liste des leads de {school.name}.
+            Votre rendez-vous est confirmé ! Retrouvez {school.name} le jour du salon pour votre créneau réservé.
           </p>
         </div>
         <button
@@ -396,7 +426,7 @@ function RdvTab({
             return (
               <button
                 key={key}
-                onClick={() => onSelectSlot(`2026-06-07T${key}:00`)}
+                onClick={() => onSelectSlot(`${datePrefix}T${key}:00`)}
                 style={{
                   background: isSelected ? '#EC1F27' : '#F5F5F5',
                   color: isSelected ? '#fff' : '#1A1A1A',

@@ -82,6 +82,7 @@ function RegisterInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawRole = searchParams.get("role");
+  const redirectTo = searchParams.get("redirect");
   type Role = "student" | "teacher" | "exhibitor" | "parent";
   const validRoles: Role[] = ["student", "teacher", "exhibitor", "parent"];
   const role: Role = validRoles.includes(rawRole as Role) ? (rawRole as Role) : "student";
@@ -185,7 +186,11 @@ function RegisterInner() {
       const supabase = getSupabase();
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) { setErrors({ submit: signInError.message }); setLoading(false); return; }
-      router.push(ROLE_HOME[role]);
+      if (role === 'student' && redirectTo && redirectTo.startsWith('/')) {
+        router.push(redirectTo);
+      } else {
+        router.push(ROLE_HOME[role]);
+      }
     } catch (err: unknown) {
       setErrors({ submit: err instanceof Error ? err.message : "Erreur lors de la création du compte" });
       setLoading(false);

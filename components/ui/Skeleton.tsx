@@ -3,22 +3,23 @@ import React from 'react'
 interface SkeletonProps {
   className?: string
   variant?: 'line' | 'card' | 'circle' | 'kpi'
+  style?: React.CSSProperties
 }
 
-export function Skeleton({ className = '', variant = 'line' }: SkeletonProps) {
+export function Skeleton({ className = '', variant = 'line', style }: SkeletonProps) {
   const base = 'animate-pulse bg-gray-200 rounded'
-  if (variant === 'circle') return <div className={`${base} rounded-full ${className}`} style={{ minWidth: 48, minHeight: 48 }} />
+  if (variant === 'circle') return <div className={`${base} rounded-full ${className}`} style={{ minWidth: 48, minHeight: 48, ...style }} />
   if (variant === 'card') return (
-    <div className={`${base} rounded-2xl ${className}`} style={{ minHeight: 160 }} />
+    <div className={`${base} rounded-2xl ${className}`} style={{ minHeight: 160, ...style }} />
   )
   if (variant === 'kpi') return (
-    <div className={`rounded-2xl border border-gray-100 p-5 space-y-3 ${className}`}>
+    <div className={`rounded-2xl border border-gray-100 p-5 space-y-3 ${className}`} style={style}>
       <div className={`${base} h-3 w-24`} />
       <div className={`${base} h-8 w-16`} />
       <div className={`${base} h-2 w-32`} />
     </div>
   )
-  return <div className={`${base} h-4 w-full ${className}`} />
+  return <div className={`${base} h-4 w-full ${className}`} style={style} />
 }
 
 export function SkeletonList({ count = 4, variant = 'kpi' }: { count?: number; variant?: SkeletonProps['variant'] }) {

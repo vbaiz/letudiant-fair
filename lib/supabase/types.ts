@@ -190,6 +190,19 @@ export type GroupRow = {
   created_at: string
 }
 
+export type SavedItemRow = {
+  id: string
+  user_id: string
+  school_id: string | null
+  kind: 'document' | 'link' | 'download'
+  label: string
+  url: string | null
+  file_name: string | null
+  file_size: string | null
+  meta: Json | null
+  created_at: string
+}
+
 // ─── Database type (references flat row types, no circular refs) ──────────────
 // Relationships: [] is required by @supabase/supabase-js 2.46.x (GenericTable constraint).
 // We don't use typed relationship traversal so an empty array satisfies the type.
@@ -255,6 +268,12 @@ export type Database = {
         Row: AppointmentRow
         Insert: Partial<AppointmentRow> & { student_id: string; school_id: string; event_id: string; slot_time: string }
         Update: Partial<AppointmentRow>
+        Relationships: []
+      }
+      saved_items: {
+        Row: SavedItemRow
+        Insert: Partial<SavedItemRow> & { user_id: string; kind: SavedItemRow['kind']; label: string }
+        Update: Partial<SavedItemRow>
         Relationships: []
       }
       groups: {

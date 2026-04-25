@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { Suspense, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Logo from '@/components/ui/Logo'
 
 const C = {
@@ -23,6 +23,8 @@ const C = {
 
 function LoginInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -51,6 +53,12 @@ function LoginInner() {
           .eq('id', uid)
           .maybeSingle()
         if (profile?.role) role = profile.role as string
+      }
+
+      // For students: honour the ?redirect= param (e.g. from a QR code deep-link)
+      if (role === 'student' && redirectTo && redirectTo.startsWith('/')) {
+        router.push(redirectTo)
+        return
       }
 
       if (role === 'teacher')   { router.push('/teacher/dashboard'); return }

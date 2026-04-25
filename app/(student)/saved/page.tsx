@@ -8,7 +8,8 @@ import SectionLabel from '@/components/ui/SectionLabel';
 import { getAppointmentsForStudent } from '@/lib/supabase/database';
 import { useAuth } from '@/hooks/useAuth';
 import { getSupabase } from '@/lib/supabase/client';
-import type { AppointmentRow } from '@/lib/supabase/types';
+import type { AppointmentRow } from '@/lib/supabase/types'
+import { generateICSContent, generateGoogleCalendarUrl, downloadICS } from '@/lib/calendar';
 
 // ─── User-specific data types ────────────────────────────────────────────────
 // Saved docs/links/downloads persist per authenticated user via the
@@ -630,6 +631,40 @@ export default function SavedPage() {
                       &ldquo;{appt.student_notes}&rdquo;
                     </p>
                   )}
+                  {/* Calendar export */}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button
+                      onClick={() => {
+                        const start = new Date(appt.slot_time)
+                        const schoolName = (appt as { schools?: { name: string } }).schools?.name ?? 'École'
+                        const ics = generateICSContent(
+                          `RDV – ${schoolName}`,
+                          start,
+                          appt.slot_duration ?? 15,
+                          appt.student_notes ?? '',
+                          schoolName,
+                        )
+                        downloadICS(ics, `rdv-${schoolName.toLowerCase().replace(/\s+/g, '-')}.ics`)
+                      }}
+                      style={{ fontSize: 12, fontWeight: 600, color: 'var(--le-gray-700)', background: 'var(--le-gray-100)', border: '1px solid var(--le-gray-200)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
+                    >
+                      📅 Télécharger .ics
+                    </button>
+                    <a
+                      href={generateGoogleCalendarUrl(
+                        `RDV – ${(appt as { schools?: { name: string } }).schools?.name ?? 'École'}`,
+                        new Date(appt.slot_time),
+                        appt.slot_duration ?? 15,
+                        appt.student_notes ?? '',
+                        (appt as { schools?: { name: string } }).schools?.name ?? '',
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 12, fontWeight: 600, color: '#1a73e8', background: '#e8f0fe', border: '1px solid #c5d4f6', borderRadius: 6, padding: '5px 10px', textDecoration: 'none' }}
+                    >
+                      📆 Google Agenda
+                    </a>
+                  </div>
                 </div>
               ))}
             </div>
