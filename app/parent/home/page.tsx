@@ -37,6 +37,8 @@ interface StudentProfile {
   education_branches: string[]
   intent_level: string
   intent_score: number
+  orientation_stage: 'exploring' | 'comparing' | 'deciding'
+  orientation_score: number
   wishlist: string[]
   last_dwell_minutes: number | null
 }
@@ -81,10 +83,11 @@ function Eyebrow({ children, color = C.tomate }: { children: React.ReactNode; co
 
 export default function ParentHomePage() {
   const router = useRouter()
-  const [profile, setProfile] = useState<StudentProfile | null>(null)
-  const [parentName, setParentName] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [profile,       setProfile]       = useState<StudentProfile | null>(null)
+  const [wishlistNames, setWishlistNames] = useState<string[]>([])
+  const [parentName,    setParentName]    = useState('')
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState('')
 
   useEffect(() => {
     async function load() {
@@ -95,16 +98,17 @@ export default function ParentHomePage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { router.push('/login'); return }
 
-        const { data: parentProfile } = await supabase
+        const { data: parentRaw } = await supabase
           .from('users').select('role, email, name').eq('id', user.id).maybeSingle()
+        const parentProfile = parentRaw as { role: string; email: string; name: string } | null
         if (!parentProfile || parentProfile.role !== 'parent') {
           router.push('/home'); return
         }
-        setParentName((parentProfile.name as string) ?? '')
+        setParentName(parentProfile.name ?? '')
 
         const { data: student, error: err } = await supabase
           .from('users')
-          .select('name, education_level, bac_series, education_branches, intent_level, intent_score, wishlist, last_dwell_minutes')
+          .select('name, education_level, bac_series, education_branches, intent_level, intent_score, orientation_stage, orientation_score, wishlist, last_dwell_minutes')
           .eq('parent_email', parentProfile.email)
           .maybeSingle()
 
@@ -113,7 +117,26 @@ export default function ParentHomePage() {
           setError("Aucun profil étudiant n'est lié à votre adresse email.")
           return
         }
-        setProfile(student as StudentProfile)
+        const s = student as StudentProfile
+        setProfile(s)
+
+        // Resolve wishlist: may contain school IDs (UUIDs) or plain names
+        const isUUID = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+        const wishlist: string[] = s.wishlist ?? []
+        const uuidItems  = wishlist.filter(isUUID)
+        const nameItems  = wishlist.filter(v => !isUUID(v))
+
+        if (uuidItems.length > 0) {
+          const { data: schoolsRaw } = await supabase
+            .from('schools').select('id, name').in('id', uuidItems)
+          const schoolMap = new Map(((schoolsRaw ?? []) as { id: string; name: string }[]).map(sc => [sc.id, sc.name]))
+          setWishlistNames([
+            ...uuidItems.map(id => schoolMap.get(id) ?? id),
+            ...nameItems,
+          ])
+        } else {
+          setWishlistNames(nameItems)
+        }
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Erreur de chargement')
       } finally {
@@ -141,7 +164,10 @@ export default function ParentHomePage() {
 
   const intentColor = profile ? (INTENT_COLOR[profile.intent_level] ?? C.gray500) : C.gray500
   const intentLabel = profile ? (INTENT_LABEL[profile.intent_level] ?? 'Explorateur') : ''
-  const firstName = parentName.split(' ')[0] || 'Parent'
+  const firstName   = parentName.split(' ')[0] || 'Parent'
+
+  const STAGE_LABEL: Record<string, string> = { exploring: 'Explorateur', comparing: 'Comparateur', deciding: 'Décideur' }
+  const STAGE_COLOR: Record<string, string> = { exploring: C.piscine, comparing: C.spirit, deciding: C.tomate }
 
   return (
     <div style={{ minHeight: '100vh', background: C.blanc, fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -337,6 +363,21 @@ export default function ParentHomePage() {
                     }} />
                   </div>
                 </div>
+
+                {/* Orientation stage */}
+                {profile.orientation_stage && (
+                  <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#fff', border: `1px solid ${C.gray200}` }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.gray500, marginBottom: 4 }}>Stade d&apos;orientation</div>
+                      <div style={{ fontSize: 16, fontWeight: 900, fontStyle: 'italic', color: STAGE_COLOR[profile.orientation_stage] ?? C.gray500, textTransform: 'uppercase', letterSpacing: '-0.01em' }}>
+                        {STAGE_LABEL[profile.orientation_stage] ?? profile.orientation_stage}
+                      </div>
+                    </div>
+                    <a href="/parent/orientation" style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.piscine, textDecoration: 'none', borderBottom: `1.5px solid ${C.piscine}`, paddingBottom: 1 }}>
+                      Guide →
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Dwell time */}
@@ -397,7 +438,7 @@ export default function ParentHomePage() {
                 </div>
               )}
 
-              {profile.wishlist && profile.wishlist.length > 0 && (
+              {wishlistNames.length > 0 && (
                 <div style={{
                   background: '#fff',
                   border: `1.5px solid ${C.gray200}`,
@@ -406,13 +447,13 @@ export default function ParentHomePage() {
                 }}>
                   <Eyebrow color={C.tomate}>Établissements sauvegardés</Eyebrow>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                    {profile.wishlist.map((school, i) => (
+                    {wishlistNames.map((school, i) => (
                       <div key={i} style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: 14,
                         padding: '14px 0',
-                        borderBottom: i === profile.wishlist.length - 1 ? 'none' : `1px solid ${C.gray200}`,
+                        borderBottom: i === wishlistNames.length - 1 ? 'none' : `1px solid ${C.gray200}`,
                       }}>
                         <div style={{
                           width: 32,
