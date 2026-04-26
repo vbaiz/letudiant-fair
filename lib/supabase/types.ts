@@ -28,6 +28,7 @@ export type UserRow = {
   is_minor: boolean
   guardian_id: string | null
   group_id: string | null
+  parent_email: string | null
   orientation_score: number
   orientation_stage: 'exploring' | 'comparing' | 'deciding'
   // intent level — computed from behavioral signals (migration 004)
