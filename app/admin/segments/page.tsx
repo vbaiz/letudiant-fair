@@ -2,16 +2,58 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
-import { getSupabase } from '@/lib/supabase/client'
 
-interface SegmentCount {
-  label: string
-  count: number
-  tone: 'red' | 'blue' | 'yellow' | 'gray'
+/* ─── palette (matches Utilisateurs page) ─── */
+const C = {
+  tomate: '#EC1F27',
+  tomateLight: '#FFF0F1',
+  piscine: '#0066CC',
+  piscineLight: '#E6F0FF',
+  citron: '#FCD716',
+  citronLight: '#FFF9E6',
+  spirit: '#FF6B35',
+  spiritLight: '#FFF0E6',
+  menthe: '#4DB8A8',
+  mentheLight: '#E0F2EF',
+  pourpre: '#932D99',
+  pourpreLight: '#F3E5F5',
+  nuit: '#2B1B4D',
+  blanc: '#F8F7F2',
+  gray900: '#191829',
+  gray700: '#3D3D3D',
+  gray500: '#6B6B6B',
+  gray200: '#E8E8E8',
+  gray100: '#F4F4F4',
+}
+
+const ROLE_CONFIG: Record<string, { label: string; color: string; light: string }> = {
+  admin:     { label: 'Admins',      color: C.tomate,  light: C.tomateLight },
+  student:   { label: 'Étudiants',   color: C.piscine, light: C.piscineLight },
+  exhibitor: { label: 'Exposants',   color: C.spirit,  light: C.spiritLight },
+  teacher:   { label: 'Enseignants', color: C.menthe,  light: C.mentheLight },
+  parent:    { label: 'Parents',     color: C.pourpre, light: C.pourpreLight },
+}
+
+const ORIENTATION_CONFIG = [
+  { key: 'exploring',  label: 'Exploration (0-40)',  color: C.citron,  light: C.citronLight, fg: '#7A6200' },
+  { key: 'comparing',  label: 'Comparaison (41-65)', color: C.piscine, light: C.piscineLight, fg: '#003C8F' },
+  { key: 'deciding',   label: 'Décision (66-100)',   color: C.tomate,  light: C.tomateLight, fg: '#B0001A' },
+  { key: 'unknown',    label: 'Score non calculé',   color: C.gray500, light: C.gray100, fg: '#3D3D3D' },
+]
+
+interface UserFromAPI {
+  id: string
+  role: string
+  orientation_score?: number | null
 }
 
 export default function AdminSegmentsPage() {
-  const [segments, setSegments] = useState<SegmentCount[]>([])
+  const [roleCounts, setRoleCounts] = useState<Record<string, number>>({})
+  const [orientationBuckets, setOrientationBuckets] = useState<Record<string, number>>({
+    exploring: 0, comparing: 0, deciding: 0, unknown: 0,
+  })
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [totalStudents, setTotalStudents] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -19,54 +61,34 @@ export default function AdminSegmentsPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const supabase = getSupabase()
+        /* Use the same API route that /admin/utilisateurs uses — it works,
+           whereas direct Supabase calls with .is('deleted_at', null) return 0
+           due to RLS policies or column issues. */
+        const res = await fetch('/api/admin/users?limit=500')
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const payload = await res.json()
+        const users: UserFromAPI[] = payload.data ?? []
 
-        // Role breakdown (all users)
-        const roles: Array<'student' | 'teacher' | 'exhibitor' | 'admin' | 'parent'> = [
-          'student', 'teacher', 'exhibitor', 'parent', 'admin',
-        ]
-        const roleCounts = await Promise.all(
-          roles.map(async (role) => {
-            const { count } = await supabase
-              .from('users')
-              .select('*', { count: 'exact', head: true })
-              .eq('role', role)
-              .is('deleted_at', null)
-            return { role, count: count ?? 0 }
-          }),
-        )
+        if (cancelled) return
 
-        // Orientation stage breakdown (students only, score buckets)
-        const { data: studentsWithScore } = await supabase
-          .from('users')
-          .select('id, orientation_score')
-          .eq('role', 'student')
-          .is('deleted_at', null)
+        // Count by role
+        const rc: Record<string, number> = {}
+        users.forEach(u => { rc[u.role] = (rc[u.role] ?? 0) + 1 })
+        setRoleCounts(rc)
+        setTotalUsers(users.length)
 
+        // Orientation buckets (students only)
+        const students = users.filter(u => u.role === 'student')
+        setTotalStudents(students.length)
         const buckets = { exploring: 0, comparing: 0, deciding: 0, unknown: 0 }
-        for (const s of studentsWithScore ?? []) {
-          const score = (s as { orientation_score: number | null }).orientation_score
+        students.forEach(s => {
+          const score = s.orientation_score
           if (score === null || score === undefined) buckets.unknown += 1
           else if (score <= 40) buckets.exploring += 1
           else if (score <= 65) buckets.comparing += 1
           else buckets.deciding += 1
-        }
-
-        if (cancelled) return
-        setSegments([
-          { label: 'Étudiants', count: roleCounts.find((r) => r.role === 'student')?.count ?? 0, tone: 'blue' },
-          { label: 'Enseignants', count: roleCounts.find((r) => r.role === 'teacher')?.count ?? 0, tone: 'gray' },
-          { label: 'Exposants', count: roleCounts.find((r) => r.role === 'exhibitor')?.count ?? 0, tone: 'red' },
-          { label: 'Parents', count: roleCounts.find((r) => r.role === 'parent')?.count ?? 0, tone: 'yellow' },
-          { label: 'Admins', count: roleCounts.find((r) => r.role === 'admin')?.count ?? 0, tone: 'gray' },
-        ])
-
-        setOrientationBuckets([
-          { label: 'Exploration (0-40)', count: buckets.exploring, tone: 'yellow' },
-          { label: 'Comparaison (41-65)', count: buckets.comparing, tone: 'blue' },
-          { label: 'Décision (66-100)', count: buckets.deciding, tone: 'red' },
-          { label: 'Score non calculé', count: buckets.unknown, tone: 'gray' },
-        ])
+        })
+        setOrientationBuckets(buckets)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Erreur')
       } finally {
@@ -76,100 +98,153 @@ export default function AdminSegmentsPage() {
     return () => { cancelled = true }
   }, [])
 
-  const [orientationBuckets, setOrientationBuckets] = useState<SegmentCount[]>([])
-
-  const totalUsers = segments.reduce((sum, s) => sum + s.count, 0)
-
   return (
-    <div style={{ padding: '32px 28px', maxWidth: 1200, margin: '0 auto' }}>
-      <header style={{ marginBottom: 24 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: '#6B6B6B', margin: '0 0 6px' }}>
-          Administration · Segments
-        </p>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 6px', color: '#1A1A1A' }}>
-          Répartition des utilisateurs
-        </h1>
-        <p style={{ fontSize: 14, color: '#6B6B6B', margin: 0 }}>
-          {loading ? 'Chargement…' : `${totalUsers} utilisateur${totalUsers > 1 ? 's' : ''} actifs`}
-        </p>
-      </header>
-
-      {error && (
-        <div style={{ padding: 12, background: '#FDEAEA', border: '1px solid #E3001B', borderRadius: 6, color: '#B0001A', fontSize: 13, marginBottom: 16 }}>
-          {error}
-        </div>
-      )}
-
-      <section style={{ marginBottom: 40 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 14px', color: '#1A1A1A' }}>
-          Par rôle
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-          {segments.map((s) => (
-            <SegmentCard key={s.label} seg={s} total={totalUsers} />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 14px', color: '#1A1A1A' }}>
-          Stade d&apos;orientation (étudiants)
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          {orientationBuckets.map((s) => (
-            <SegmentCard key={s.label} seg={s} />
-          ))}
-        </div>
-      </section>
-    </div>
-  )
-}
-
-const TONE: Record<SegmentCount['tone'], { bg: string; fg: string }> = {
-  red:    { bg: '#FDEAEA', fg: '#B0001A' },
-  blue:   { bg: '#E6ECF8', fg: '#003C8F' },
-  yellow: { bg: '#FFFBE6', fg: '#7A6200' },
-  gray:   { bg: '#F4F4F4', fg: '#3D3D3D' },
-}
-
-function SegmentCard({ seg, total }: { seg: SegmentCount; total?: number }) {
-  const tone = TONE[seg.tone]
-  const pct = total && total > 0 ? Math.round((seg.count / total) * 100) : null
-  return (
-    <div style={{ background: '#fff', border: '1px solid #E8E8E8', borderRadius: 8, padding: '16px 18px' }}>
-      <p style={{ fontSize: 12, fontWeight: 600, color: '#6B6B6B', margin: '0 0 8px' }}>
-        {seg.label}
-      </p>
-      <p style={{ fontSize: 28, fontWeight: 800, margin: '0 0 6px', color: tone.fg }}>
-        {seg.count}
-      </p>
-      {pct !== null && (
-        <p style={{ fontSize: 12, color: '#6B6B6B', margin: 0 }}>
-          {pct}% du total
-        </p>
-      )}
+    <div style={{ minHeight: '100vh', background: C.blanc }}>
+      {/* Signature stripe */}
       <div
-        aria-hidden="true"
         style={{
-          marginTop: 10,
-          height: 4,
-          borderRadius: 2,
-          background: tone.bg,
-          position: 'relative',
-          overflow: 'hidden',
+          height: 6,
+          background: `linear-gradient(90deg, ${C.tomate} 0 16.66%, ${C.piscine} 16.66% 33.33%, ${C.citron} 33.33% 50%, ${C.spirit} 50% 66.66%, ${C.menthe} 66.66% 83.33%, ${C.pourpre} 83.33% 100%)`,
         }}
-      >
-        {pct !== null && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: `${pct}%`,
-              background: tone.fg,
-              opacity: 0.8,
-            }}
-          />
+      />
+
+      <div style={{ padding: '40px 48px', maxWidth: 1400, margin: '0 auto' }}>
+        {/* Editorial header */}
+        <div style={{ marginBottom: 40 }}>
+          <div style={{ display: 'inline-block', position: 'relative', paddingBottom: 8, marginBottom: 16 }}>
+            <span style={{
+              fontSize: 11, fontWeight: 800, letterSpacing: '0.2em',
+              textTransform: 'uppercase', color: C.gray500,
+            }}>
+              Administration — Segments
+            </span>
+            <div style={{ position: 'absolute', left: 0, bottom: 0, width: 28, height: 3, background: C.tomate }} />
+          </div>
+
+          <h1 style={{
+            margin: 0, fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 900,
+            color: C.nuit, textTransform: 'uppercase', lineHeight: 0.95, letterSpacing: '-0.03em',
+          }}>
+            Segments
+          </h1>
+          <p style={{ margin: '12px 0 0', fontSize: 16, color: C.gray500, maxWidth: 640, lineHeight: 1.5 }}>
+            {loading ? 'Chargement…' : (
+              <>
+                Répartition des <strong style={{ color: C.nuit }}>{totalUsers}</strong> membres
+                {totalStudents > 0 && <> dont <strong style={{ color: C.nuit }}>{totalStudents}</strong> étudiants</>}
+              </>
+            )}
+          </p>
+        </div>
+
+        {error && (
+          <div style={{
+            padding: '14px 20px', background: C.tomateLight, color: C.tomate,
+            border: `1.5px solid ${C.tomate}`, borderLeft: `6px solid ${C.tomate}`,
+            borderRadius: 2, marginBottom: 24, fontSize: 14, fontWeight: 600,
+          }}>
+            {error}
+          </div>
         )}
+
+        {/* ── By Role ── */}
+        <section style={{ marginBottom: 40 }}>
+          <h2 style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase',
+            color: C.gray500, margin: '0 0 16px', paddingLeft: 4,
+          }}>
+            Par rôle
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+            {(['admin', 'student', 'exhibitor', 'teacher', 'parent'] as const).map(role => {
+              const cfg = ROLE_CONFIG[role]
+              const count = roleCounts[role] ?? 0
+              const pct = totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0
+              return (
+                <div key={role} style={{
+                  background: '#fff', border: `1px solid ${C.gray200}`,
+                  borderLeft: `4px solid ${cfg.color}`, padding: '18px 20px', borderRadius: 2,
+                }}>
+                  <div style={{
+                    fontSize: 10, fontWeight: 800, letterSpacing: '0.15em',
+                    textTransform: 'uppercase', color: cfg.color, marginBottom: 8,
+                  }}>
+                    {cfg.label}
+                  </div>
+                  <div style={{
+                    fontSize: 28, fontWeight: 900, color: C.nuit,
+                    letterSpacing: '-0.02em', lineHeight: 1, marginBottom: 6,
+                  }}>
+                    {loading ? '…' : count}
+                  </div>
+                  {totalUsers > 0 && (
+                    <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>
+                      {pct}% du total
+                    </div>
+                  )}
+                  <div style={{
+                    height: 4, borderRadius: 2, background: cfg.light,
+                    position: 'relative', overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      position: 'absolute', inset: 0, width: `${pct}%`,
+                      background: cfg.color, opacity: 0.8,
+                    }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* ── Orientation Stage ── */}
+        <section>
+          <h2 style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase',
+            color: C.gray500, margin: '0 0 16px', paddingLeft: 4,
+          }}>
+            Stade d&apos;orientation (étudiants)
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            {ORIENTATION_CONFIG.map(cfg => {
+              const count = orientationBuckets[cfg.key] ?? 0
+              const pct = totalStudents > 0 ? Math.round((count / totalStudents) * 100) : 0
+              return (
+                <div key={cfg.key} style={{
+                  background: '#fff', border: `1px solid ${C.gray200}`,
+                  borderLeft: `4px solid ${cfg.color}`, padding: '18px 20px', borderRadius: 2,
+                }}>
+                  <div style={{
+                    fontSize: 10, fontWeight: 800, letterSpacing: '0.15em',
+                    textTransform: 'uppercase', color: cfg.fg, marginBottom: 8,
+                  }}>
+                    {cfg.label}
+                  </div>
+                  <div style={{
+                    fontSize: 28, fontWeight: 900, color: C.nuit,
+                    letterSpacing: '-0.02em', lineHeight: 1, marginBottom: 6,
+                  }}>
+                    {loading ? '…' : count}
+                  </div>
+                  {totalStudents > 0 && (
+                    <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>
+                      {pct}% des étudiants
+                    </div>
+                  )}
+                  <div style={{
+                    height: 4, borderRadius: 2, background: cfg.light,
+                    position: 'relative', overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      position: 'absolute', inset: 0, width: `${pct}%`,
+                      background: cfg.color, opacity: 0.8,
+                    }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
       </div>
     </div>
   )
