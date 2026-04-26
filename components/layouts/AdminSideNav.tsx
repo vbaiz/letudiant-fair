@@ -71,6 +71,46 @@ function IconUsers() {
   );
 }
 
+function IconStudents() {
+  return (
+    <svg
+      width={18}
+      height={18}
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 2L1 6L9 10L17 6L9 2Z" />
+      <path d="M4 8V13C4 13 6 15.5 9 15.5C12 15.5 14 13 14 13V8" />
+      <path d="M17 6V12" />
+    </svg>
+  );
+}
+
+function IconSegments() {
+  return (
+    <svg
+      width={18}
+      height={18}
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="9" r="7" />
+      <path d="M9 2V9L14.5 13" />
+      <path d="M9 9L4 13.5" />
+    </svg>
+  );
+}
+
 function IconSettings() {
   return (
     <svg
@@ -105,6 +145,16 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/utilisateurs",
     label: "Utilisateurs",
     icon: <IconUsers />,
+  },
+  {
+    href: "/admin/students",
+    label: "Étudiants",
+    icon: <IconStudents />,
+  },
+  {
+    href: "/admin/segments",
+    label: "Segments",
+    icon: <IconSegments />,
   },
   {
     href: "/admin/parametres",
