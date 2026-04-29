@@ -10,7 +10,7 @@ export default function ExhibitorLayout({
     <RoleGate allow="exhibitor">
       <div className="flex min-h-screen">
         <ExhibitorSideNav />
-        <main className="flex-1 bg-[#F4F4F4] p-8">{children}</main>
+        <main className="flex-1 le-dashboard-bg p-8">{children}</main>
       </div>
     </RoleGate>
   );

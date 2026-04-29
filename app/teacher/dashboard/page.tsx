@@ -26,9 +26,14 @@ function StatCard({ label, value, sub, color = '#EC1F27' }: {
   label: string; value: string | number; sub?: string; color?: string
 }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', flex: 1 }}>
-      <p style={{ margin: '0 0 6px', fontSize: '0.75rem', color: '#6B6B6B', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>{label}</p>
-      <p style={{ margin: '0 0 3px', fontSize: '1.75rem', fontWeight: 800, color }}>{value}</p>
+    <div className="le-kpi-card" style={{ padding: '20px 22px', flex: 1, position: 'relative' }}>
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: 3, height: '100%',
+        background: `linear-gradient(180deg, ${color} 0%, ${color}99 100%)`,
+        borderRadius: '3px 0 0 3px',
+      }} />
+      <p style={{ margin: '0 0 8px', fontSize: '0.6875rem', color: '#6B6B6B', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>{label}</p>
+      <p style={{ margin: '0 0 4px', fontSize: '1.75rem', fontWeight: 800, color: '#191829', letterSpacing: '-0.02em', lineHeight: 1 }}>{value}</p>
       {sub && <p style={{ margin: 0, fontSize: '0.75rem', color: '#9B9B9B' }}>{sub}</p>}
     </div>
   )
@@ -159,7 +164,7 @@ export default function TeacherDashboard() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <main style={{ flex: 1, padding: '32px 28px', maxWidth: 900, fontFamily: 'system-ui, sans-serif' }}>
+    <main className="le-fade-in" style={{ flex: 1, padding: '32px 28px', maxWidth: 900, fontFamily: 'system-ui, sans-serif' }}>
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 28 }}>
@@ -216,13 +221,19 @@ export default function TeacherDashboard() {
             </div>
 
             {/* ── Progress bar: pre-fair registrations ─────────────────────── */}
-            <div style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', marginBottom: 24, boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div className="le-dash-card" style={{ padding: '20px 22px', marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: '#1A1A1A' }}>Inscriptions avant le salon</span>
                 <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: preFairRate >= 70 ? '#15803d' : '#EC1F27' }}>{preFairCount} / {totalJoined}</span>
               </div>
-              <div style={{ height: 10, background: '#E8E8E8', borderRadius: 5, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${preFairRate}%`, background: preFairRate >= 70 ? '#22c55e' : '#EC1F27', borderRadius: 5, transition: 'width 0.5s ease' }} />
+              <div style={{ height: 8, background: 'rgba(16,24,40,0.06)', borderRadius: 999, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${preFairRate}%`,
+                  background: preFairRate >= 70
+                    ? 'linear-gradient(90deg, #22c55e 0%, #15803d 100%)'
+                    : 'linear-gradient(90deg, #EC1F27 0%, #C41520 100%)',
+                  borderRadius: 999, transition: 'width 0.6s var(--ease-out)',
+                }} />
               </div>
               <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#6B6B6B' }}>
                 {preFairRate >= 70

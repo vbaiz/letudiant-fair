@@ -30,9 +30,14 @@ function KpiCard({ label, value, sub, color = '#EC1F27' }: {
   label: string; value: string | number; sub?: string; color?: string
 }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-      <p style={{ margin: '0 0 6px', fontSize: '0.75rem', color: '#6B6B6B', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>{label}</p>
-      <p style={{ margin: '0 0 3px', fontSize: '1.75rem', fontWeight: 800, color }}>{value}</p>
+    <div className="le-kpi-card" style={{ padding: '20px 22px', position: 'relative' }}>
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: 3, height: '100%',
+        background: `linear-gradient(180deg, ${color} 0%, ${color}99 100%)`,
+        borderRadius: '3px 0 0 3px',
+      }} />
+      <p style={{ margin: '0 0 8px', fontSize: '0.6875rem', color: '#6B6B6B', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>{label}</p>
+      <p style={{ margin: '0 0 4px', fontSize: '1.75rem', fontWeight: 800, color: '#191829', letterSpacing: '-0.02em', lineHeight: 1 }}>{value}</p>
       {sub && <p style={{ margin: 0, fontSize: '0.75rem', color: '#9B9B9B' }}>{sub}</p>}
     </div>
   )
@@ -45,8 +50,13 @@ function BarRow({ label, pct, color }: { label: string; pct: number; color: stri
         <span style={{ fontSize: 13, fontWeight: 600, color: '#3D3D3D' }}>{label}</span>
         <span style={{ fontSize: 13, color: '#6B6B6B', fontWeight: 600 }}>{pct}%</span>
       </div>
-      <div style={{ height: 10, background: '#E8E8E8', borderRadius: 5, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 5, transition: 'width 0.4s ease' }} />
+      <div style={{ height: 8, background: 'rgba(16,24,40,0.06)', borderRadius: 999, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', width: `${pct}%`,
+          background: `linear-gradient(90deg, ${color} 0%, ${color}DD 100%)`,
+          borderRadius: 999,
+          transition: 'width 0.6s var(--ease-out)',
+        }} />
       </div>
     </div>
   )
@@ -189,7 +199,7 @@ export default function ExhibitorDashboard() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div className="le-fade-in" style={{ maxWidth: 1100, margin: '0 auto' }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
@@ -204,7 +214,14 @@ export default function ExhibitorDashboard() {
       </div>
 
       {/* ── GDPR policy notice ─────────────────────────────────────────────── */}
-      <div style={{ background: '#FFF9E6', border: '1px solid #FCD716', borderRadius: 12, padding: '12px 16px', marginBottom: 24, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+      <div style={{
+        background: 'linear-gradient(135deg, #FFFBEB 0%, #FFF6D5 100%)',
+        border: '1px solid rgba(252, 215, 22, 0.45)',
+        borderRadius: 'var(--radius-md)',
+        padding: '12px 16px', marginBottom: 24,
+        display: 'flex', gap: 10, alignItems: 'flex-start',
+        boxShadow: 'var(--shadow-xs)',
+      }}>
         <span style={{ fontSize: 18, flexShrink: 0 }}>🔒</span>
         <p style={{ margin: 0, fontSize: 13, color: '#92400e', lineHeight: 1.5 }}>
           <strong>Données 100 % agrégées.</strong> Conformément au RGPD, les profils individuels des visiteurs appartiennent à L&apos;Étudiant et ne sont pas accessibles ici.
@@ -286,7 +303,12 @@ export default function ExhibitorDashboard() {
               <div className="le-card le-card-padded" style={{ textAlign: 'center' }}>
                 <SectionLabel style={{ marginBottom: 12 }}>QR Code de votre stand</SectionLabel>
 
-                <div style={{ display: 'inline-block', padding: 12, background: '#fff', borderRadius: 12, border: '1.5px solid #E8E8E8', marginBottom: 12 }}>
+                <div style={{
+                  display: 'inline-block', padding: 14,
+                  background: '#fff', borderRadius: 'var(--radius-md)',
+                  border: '1px solid rgba(16,24,40,0.08)',
+                  marginBottom: 12, boxShadow: 'var(--shadow-sm)',
+                }}>
                   <canvas
                     ref={standQrRef}
                     style={{ display: 'block', opacity: qrReady ? 1 : 0.2, transition: 'opacity 0.3s', borderRadius: 6 }}

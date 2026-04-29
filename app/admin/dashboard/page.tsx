@@ -67,21 +67,26 @@ interface PreregFunnel { event_id: string; total_preregistered: number; resolved
 function StatCard({ label, value, sub, accent }: {
   label: string; value: string | number; sub?: string; accent?: string
 }) {
+  const accentColor = accent ?? C.nuit
   return (
-    <div style={{
-      background: '#fff', border: `1px solid ${C.gray200}`,
-      borderLeft: `4px solid ${accent ?? C.nuit}`,
-      padding: '18px 20px', borderRadius: 2,
+    <div className="le-kpi-card" style={{
+      padding: '20px 22px',
+      position: 'relative' as const,
     }}>
       <div style={{
-        fontSize: 10, fontWeight: 800, letterSpacing: '0.15em',
-        textTransform: 'uppercase' as const, color: accent ?? C.gray500, marginBottom: 8,
+        position: 'absolute' as const, top: 0, left: 0, width: 3, height: '100%',
+        background: `linear-gradient(180deg, ${accentColor} 0%, ${accentColor}99 100%)`,
+        borderRadius: '3px 0 0 3px',
+      }} />
+      <div style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+        textTransform: 'uppercase' as const, color: accentColor, marginBottom: 10,
       }}>{label}</div>
       <div style={{
-        fontSize: 28, fontWeight: 900, color: C.nuit,
+        fontSize: 28, fontWeight: 800, color: C.nuit,
         letterSpacing: '-0.02em', lineHeight: 1, marginBottom: sub ? 6 : 0,
       }}>{typeof value === 'number' ? fmt(value) : value}</div>
-      {sub && <div style={{ fontSize: 12, color: C.gray500 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 12, color: C.gray500, fontWeight: 500 }}>{sub}</div>}
     </div>
   )
 }
@@ -97,8 +102,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div style={{
-      background: '#fff', border: `1px solid ${C.gray200}`, borderRadius: 4,
+    <div className="le-dash-card" style={{
       padding: '24px 28px', ...style,
     }}>{children}</div>
   )
@@ -292,14 +296,17 @@ export default function AdminDashboard() {
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ minHeight: '100vh', background: C.blanc }}>
-      {/* Stripe */}
+    <div style={{ minHeight: '100vh' }}>
+      {/* Subtle multi-color top accent (épuré) */}
       <div style={{
-        height: 6,
+        height: 3,
         background: `linear-gradient(90deg, ${C.tomate} 0 16.66%, ${C.piscine} 16.66% 33.33%, ${C.citron} 33.33% 50%, ${C.spirit} 50% 66.66%, ${C.menthe} 66.66% 83.33%, ${C.pourpre} 83.33% 100%)`,
+        opacity: 0.85,
+        borderRadius: 4,
+        margin: '0 0 4px',
       }} />
 
-      <div style={{ padding: '40px 48px', maxWidth: 1400, margin: '0 auto' }}>
+      <div style={{ padding: '32px 40px', maxWidth: 1400, margin: '0 auto' }} className="le-fade-in">
         {/* HEADER */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ display: 'inline-block', position: 'relative', paddingBottom: 8, marginBottom: 16 }}>
@@ -322,16 +329,26 @@ export default function AdminDashboard() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <span style={{ fontSize: 12, color: C.gray500 }}>
-                {refreshing ? '⟳ ' : ''}Mis à jour il y a {timeSince}
+              <span style={{
+                fontSize: 12, color: C.gray500, fontWeight: 500,
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '6px 12px', background: '#fff',
+                border: `1px solid rgba(16,24,40,0.06)`,
+                borderRadius: 999, boxShadow: 'var(--shadow-xs)',
+              }}>
+                <span className="le-live-dot" />
+                {refreshing ? 'Synchronisation… ' : `Mis à jour il y a ${timeSince}`}
               </span>
               {events.length > 0 && (
                 <select value={selectedEvent?.id ?? ''} onChange={e => {
                   const ev = events.find(x => x.id === e.target.value)
                   if (ev) setSelectedEvent(ev)
                 }} style={{
-                  padding: '10px 14px', border: `1.5px solid ${C.gray200}`, borderRadius: 2,
+                  padding: '10px 14px', border: `1px solid rgba(16,24,40,0.08)`,
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: 14, background: '#fff', color: C.nuit, fontWeight: 600, cursor: 'pointer',
+                  boxShadow: 'var(--shadow-xs)',
+                  transition: 'border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out)',
                 }}>
                   {events.map(ev => (
                     <option key={ev.id} value={ev.id}>
@@ -363,21 +380,23 @@ export default function AdminDashboard() {
 
         {/* TAB BAR */}
         {events.length > 0 && (
-          <div style={{ display: 'flex', gap: 4, marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-flex', gap: 4, marginBottom: 32,
+            padding: 4, background: 'rgba(16,24,40,0.04)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid rgba(16,24,40,0.04)',
+          }}>
             {([
-              { key: 'preparation' as Tab, label: 'Préparation', color: C.piscine },
-              { key: 'jourj' as Tab, label: 'Jour J', color: C.tomate },
-              { key: 'bilan' as Tab, label: 'Bilan', color: C.menthe },
-              { key: 'clusters' as Tab, label: 'Clusters', color: C.pourpre },
+              { key: 'preparation' as Tab, label: 'Préparation' },
+              { key: 'jourj' as Tab, label: 'Jour J' },
+              { key: 'bilan' as Tab, label: 'Bilan' },
+              { key: 'clusters' as Tab, label: 'Clusters' },
             ]).map(t => (
-              <button key={t.key} onClick={() => setTab(t.key)} style={{
-                padding: '12px 24px', border: `1.5px solid ${tab === t.key ? C.nuit : C.gray200}`,
-                background: tab === t.key ? C.nuit : '#fff',
-                color: tab === t.key ? '#fff' : C.gray700,
-                borderRadius: 2, fontWeight: 700, fontSize: 12, cursor: 'pointer',
-                textTransform: 'uppercase' as const, letterSpacing: '0.06em',
-                transition: 'all 0.15s',
-              }}>{t.label}</button>
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`le-tab-pill${tab === t.key ? ' active' : ''}`}
+              >{t.label}</button>
             ))}
           </div>
         )}
@@ -396,7 +415,7 @@ export default function AdminDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 28 }}>
             {/* Narrative KPIs */}
             <SectionTitle>Vue d&apos;ensemble</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
               <StatCard label="Pré-inscrits" value={prereg?.total_preregistered ?? 0}
                 sub="Via EventMaker" accent={C.nuit} />
               <StatCard label="Profils complétés" value={prereg?.resolved ?? 0}
@@ -472,7 +491,7 @@ export default function AdminDashboard() {
         {!loading && tab === 'jourj' && kpis && (
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 28 }}>
             <SectionTitle>Temps réel</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
               <StatCard label="Présents" value={kpis.entered} accent={C.menthe} />
               <StatCard label="Scans stands" value={kpis.total_stand_scans} accent={C.piscine} />
               <StatCard label="Conférences" value={kpis.total_conf_scans} accent={C.spirit} />
@@ -585,7 +604,7 @@ export default function AdminDashboard() {
         {!loading && tab === 'bilan' && kpis && (
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 28 }}>
             <SectionTitle>Résultats du salon</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
               <StatCard label="Total leads" value={totalLeads} accent={C.tomate} />
               <StatCard label="Décideurs" value={kpis.deciding_count}
                 sub={`${pct(kpis.deciding_count, totalLeads)}% du total`} accent={C.tomate} />
@@ -605,12 +624,13 @@ export default function AdminDashboard() {
                 <div style={{ overflowX: 'auto' as const }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 }}>
                     <thead>
-                      <tr style={{ background: C.nuit }}>
+                      <tr style={{ background: 'linear-gradient(180deg, #FAFAF8 0%, #F4F3EE 100%)' }}>
                         {['École', 'Leads', 'Décideurs', 'Comparateurs', 'Explorateurs', 'Score moy.'].map(h => (
                           <th key={h} style={{
-                            padding: '12px 14px', textAlign: h === 'École' ? 'left' as const : 'right' as const,
-                            fontWeight: 800, color: '#fff', fontSize: 10,
-                            letterSpacing: '0.1em', textTransform: 'uppercase' as const,
+                            padding: '14px 16px', textAlign: h === 'École' ? 'left' as const : 'right' as const,
+                            fontWeight: 700, color: C.gray700, fontSize: 10,
+                            letterSpacing: '0.12em', textTransform: 'uppercase' as const,
+                            borderBottom: `1px solid rgba(16,24,40,0.06)`,
                           }}>{h}</th>
                         ))}
                       </tr>
@@ -666,15 +686,20 @@ export default function AdminDashboard() {
             <SectionTitle>Segments comportementaux</SectionTitle>
 
             {/* 3 segment cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
               {clusters.map(c => {
                 const tier = TIER_COLORS[c.level as keyof typeof TIER_COLORS] ?? TIER_COLORS.low
                 const totalC = clusters.reduce((s, x) => s + x.count, 0) || 1
                 return (
-                  <div key={c.level} style={{
-                    background: '#fff', border: `1px solid ${C.gray200}`,
-                    borderLeft: `4px solid ${tier.color}`, padding: '24px', borderRadius: 2,
+                  <div key={c.level} className="le-kpi-card" style={{
+                    padding: '24px',
+                    position: 'relative' as const,
                   }}>
+                    <div style={{
+                      position: 'absolute' as const, top: 0, left: 0, width: 3, height: '100%',
+                      background: `linear-gradient(180deg, ${tier.color} 0%, ${tier.color}99 100%)`,
+                      borderRadius: '3px 0 0 3px',
+                    }} />
                     <div style={{
                       fontSize: 10, fontWeight: 800, letterSpacing: '0.15em',
                       textTransform: 'uppercase' as const, color: tier.color, marginBottom: 8,
