@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Profils Étudiants aux Salons — Recommandations L'Étudiant</title>
+  <style>
+    :root {
+      --red:    #EC1F27; --red-light: #FEE2E2;
+      --blue:   #003C8F; --blue-light: #EFF6FF;
+      --green:  #15803D; --green-light: #DCFCE7;
+      --yellow: #7A6200; --yellow-light: #FEF3C7;
+      --purple: #6B21A8; --purple-light: #F3E8FF;
+      --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
+      --gray-400:#9CA3AF; --gray-600:#4B5563; --gray-700:#374151;
+      --gray-800:#1F2937; --gray-900:#111827;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+         background:#F8F9FB;color:var(--gray-800);line-height:1.65}
+
+    /* Cover */
+    .cover{background:linear-gradient(135deg,#0a1628 0%,#1a3a6b 60%,var(--blue) 100%);
+           color:#fff;padding:80px 60px 64px;position:relative;overflow:hidden}
+    .cover::after{content:'';position:absolute;right:-120px;bottom:-120px;
+                  width:500px;height:500px;border-radius:50%;background:rgba(236,31,39,.1)}
+    .cover-eyebrow{display:inline-block;background:var(--red);color:#fff;
+                   font-size:11px;font-weight:800;letter-spacing:2px;
+                   text-transform:uppercase;padding:4px 14px;border-radius:4px;margin-bottom:22px}
+    .cover h1{font-size:40px;font-weight:800;line-height:1.12;max-width:680px;margin-bottom:16px}
+    .cover .sub{font-size:16px;color:rgba(255,255,255,.65);max-width:580px;margin-bottom:40px;line-height:1.6}
+    .cover-pills{display:flex;gap:12px;flex-wrap:wrap}
+    .cover-pill{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+                color:#fff;font-size:12px;font-weight:600;padding:6px 16px;border-radius:20px}
+
+    /* Layout */
+    .wrap{max-width:1080px;margin:0 auto;padding:0 32px 80px}
+
+    /* Section */
+    .section{margin:56px 0}
+    .sec-head{display:flex;align-items:center;gap:14px;margin-bottom:28px;
+              padding-bottom:14px;border-bottom:2px solid var(--gray-200)}
+    .sec-num{background:var(--red);color:#fff;width:32px;height:32px;border-radius:8px;
+             display:flex;align-items:center;justify-content:center;
+             font-size:14px;font-weight:800;flex-shrink:0}
+    .sec-head h2{font-size:22px;font-weight:800;color:var(--gray-900)}
+    .subsec{font-size:15px;font-weight:700;color:var(--gray-900);
+            margin:32px 0 14px;padding-left:12px;border-left:3px solid var(--red)}
+
+    /* Callout */
+    .callout{padding:16px 20px;border-radius:10px;font-size:14px;
+             line-height:1.65;margin-bottom:24px}
+    .callout.blue{background:var(--blue-light);border:1px solid #BFDBFE;color:var(--blue)}
+    .callout.red{background:var(--red-light);border:1px solid #FECACA;color:#991B1B}
+    .callout.green{background:var(--green-light);border:1px solid #86EFAC;color:var(--green)}
+    .callout.dark{background:var(--gray-900);color:#fff;border:none}
+
+    /* Segment overview cards */
+    .seg-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:12px}
+    @media(max-width:720px){.seg-grid{grid-template-columns:1fr}}
+    .seg-card{border-radius:12px;padding:20px 22px;border:1px solid}
+    .seg-card h3{font-size:15px;font-weight:800;margin-bottom:6px}
+    .seg-card p{font-size:13px;line-height:1.6}
+    .seg-card .sig{font-size:11px;font-weight:700;text-transform:uppercase;
+                   letter-spacing:1px;margin-bottom:10px}
+
+    /* Profile cards */
+    .profile-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:28px}
+    @media(max-width:720px){.profile-grid{grid-template-columns:1fr}}
+    .profile-card{background:#fff;border-radius:14px;overflow:hidden;
+                  border:1px solid var(--gray-200);display:flex;flex-direction:column}
+    .profile-header{padding:22px 24px;display:flex;align-items:flex-start;gap:14px}
+    .avatar{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;
+            justify-content:center;font-size:24px;flex-shrink:0}
+    .profile-name{font-size:18px;font-weight:800;color:var(--gray-900)}
+    .profile-sub{font-size:12px;color:var(--gray-400);margin-top:2px;line-height:1.5}
+    .profile-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+    .tag{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.3px}
+    .profile-body{padding:0 24px 24px;flex:1;display:flex;flex-direction:column;gap:20px}
+
+    /* Section labels inside profile */
+    .plabel{font-size:10px;font-weight:800;text-transform:uppercase;
+            letter-spacing:1.2px;color:var(--gray-400);margin-bottom:8px}
+
+    /* Context block */
+    .context-block{background:var(--gray-50);border-radius:8px;padding:14px 16px;
+                   font-size:13px;color:var(--gray-700);line-height:1.65}
+    .context-block strong{color:var(--gray-900)}
+
+    /* Journey */
+    .journey-steps{display:flex;flex-direction:column}
+    .journey-step{display:flex;gap:12px;align-items:flex-start}
+    .step-line{display:flex;flex-direction:column;align-items:center}
+    .step-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+    .step-connector{width:2px;flex:1;min-height:20px;background:var(--gray-200);margin:3px 0}
+    .step-content{padding-bottom:16px}
+    .step-title{font-size:13px;font-weight:700;color:var(--gray-900)}
+    .step-desc{font-size:12px;color:var(--gray-600);margin-top:3px;line-height:1.55}
+    .step-moment{font-size:10px;font-weight:700;text-transform:uppercase;
+                 letter-spacing:.8px;color:var(--gray-400);margin-bottom:3px}
+
+    /* Narrative */
+    .narrative-box{border-radius:10px;padding:16px 18px;font-size:13px;
+                   line-height:1.7;border-left:3px solid}
+    .narrative-box .headline{font-size:14px;font-weight:800;margin-bottom:8px;display:block}
+
+    /* Action box */
+    .action-box{border-radius:10px;padding:16px 18px}
+    .action-box .action-title{font-size:10px;font-weight:800;text-transform:uppercase;
+                               letter-spacing:1px;margin-bottom:10px}
+    .action-box ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+    .action-box ul li{font-size:13px;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+    .action-box ul li::before{content:'→';font-weight:800;flex-shrink:0;margin-top:1px}
+
+    /* Narrative matrix */
+    .matrix-wrap{border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);margin-bottom:24px}
+    .matrix-table{width:100%;border-collapse:collapse;font-size:13px}
+    .matrix-table th{background:var(--gray-900);color:#fff;padding:12px 16px;
+                     text-align:left;font-size:11px;font-weight:700;
+                     letter-spacing:.8px;text-transform:uppercase;white-space:nowrap}
+    .matrix-table td{padding:11px 16px;border-bottom:1px solid var(--gray-200);vertical-align:top;line-height:1.5}
+    .matrix-table tr:last-child td{border-bottom:none}
+    .matrix-table tr:nth-child(even) td{background:var(--gray-50)}
+    .matrix-table td:first-child{font-weight:700;color:var(--gray-700);white-space:nowrap}
+
+    /* Recommendation cards */
+    .rec-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+    @media(max-width:700px){.rec-grid{grid-template-columns:1fr}}
+    .rec-card{background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:20px 22px}
+    .rec-card .rec-icon{font-size:26px;margin-bottom:10px}
+    .rec-card h3{font-size:14px;font-weight:800;color:var(--gray-900);margin-bottom:8px}
+    .rec-card p{font-size:13px;color:var(--gray-600);line-height:1.6}
+    .rec-card .rec-who{font-size:11px;font-weight:700;text-transform:uppercase;
+                        letter-spacing:.8px;margin-top:10px;padding-top:10px;
+                        border-top:1px solid var(--gray-100);color:var(--gray-400)}
+
+    .footer{text-align:center;color:var(--gray-400);font-size:12px;
+            padding:28px 0 12px;border-top:1px solid var(--gray-200)}
+  </style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div style="max-width:1080px;margin:0 auto;padding:0 32px">
+    <div class="cover-eyebrow">Usage interne · Équipe L'Étudiant</div>
+    <h1>Qui sont les étudiants qui viennent aux salons ?</h1>
+    <p class="sub">Quatre profils distincts. Quatre parcours nommés. Des recommandations concrètes sur comment adresser chaque type d'étudiant — avant, pendant et après le salon.</p>
+    <div class="cover-pills">
+      <span class="cover-pill">4 profils comportementaux</span>
+      <span class="cover-pill">Expérience digitale vs. primo-visiteurs</span>
+      <span class="cover-pill">Narratives différenciées</span>
+      <span class="cover-pill">Actions produit & communication</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ═══ INTRO ═══ -->
+<div class="section">
+  <div class="callout dark" style="margin-top:32px">
+    <strong style="display:block;font-size:15px;margin-bottom:8px">Le problème de l'approche uniforme</strong>
+    Tous les étudiants ne viennent pas au salon avec le même bagage. Certains arrivent avec un compte letudiant.fr, un test ORI complété et une wishlist de formations. D'autres poussent la porte par curiosité, sans projet, parfois sans savoir ce qu'est un salon d'orientation. Leur adresser le même message est une erreur. Ce document définit qui ils sont et comment leur parler différemment.
+  </div>
+</div>
+
+
+<!-- ═══ SECTION 1 — LES DEUX GRANDES POPULATIONS ═══ -->
+<div class="section" id="s1">
+  <div class="sec-head"><div class="sec-num">1</div><h2>Les deux grandes populations</h2></div>
+
+  <div class="seg-grid">
+    <div class="seg-card" style="background:var(--blue-light);border-color:#BFDBFE">
+      <div class="sig" style="color:var(--blue)">Population A — Expérience digitale préalable</div>
+      <h3 style="color:var(--blue)">L'étudiant qui a déjà rencontré L'Étudiant</h3>
+      <p style="color:var(--gray-700)">A visité letudiant.fr, complété un test ORI, pré-inscrit au salon ou possède déjà un compte. Il arrive avec un contexte, des attentes et souvent une intention claire. Il cherche à <strong>valider et finaliser</strong>, pas à découvrir.</p>
+    </div>
+    <div class="seg-card" style="background:var(--red-light);border-color:#FECACA">
+      <div class="sig" style="color:var(--red)">Population B — Aucun contact digital préalable</div>
+      <h3 style="color:var(--red)">L'étudiant qui découvre tout sur place</h3>
+      <p style="color:var(--gray-700)">Walk-in, groupe scolaire, visite spontanée. Aucun profil pré-existant. Il arrive sans agenda précis. Il cherche à <strong>comprendre ce qui existe</strong> et à savoir si quelque chose est fait pour lui. Le salon est son premier contact avec l'écosystème orientation.</p>
+    </div>
+  </div>
+
+  <div class="callout blue" style="margin-top:8px">
+    <strong>Ce que cette distinction change :</strong> Pour la population A, le salon est une <em>étape</em> dans un parcours déjà engagé. Pour la population B, le salon est un <em>point de départ</em> — parfois le seul. Les deux ont besoin du salon, mais pour des raisons opposées. Les outils, les messages et les actions post-salon doivent être entièrement différents.
+  </div>
+
+  <h3 class="subsec">Ce que révèle le comportement sur place</h3>
+  <div class="matrix-wrap">
+    <table class="matrix-table">
+      <thead><tr><th>Comportement</th><th>Avec expérience digitale</th><th>Sans expérience digitale</th></tr></thead>
+      <tbody>
+        <tr><td>Stands visités</td><td>Ciblés, peu nombreux, écoles pré-identifiées</td><td>Larges, aléatoires, déclenchés par le visuel du stand</td></tr>
+        <tr><td>Interaction avec le conseiller</td><td>Questions précises sur les admissions, délais, coûts</td><td>Questions larges : "C'est quoi cette école ?" "Ça mène à quoi ?"</td></tr>
+        <tr><td>App téléchargée</td><td>Avant d'arriver ou à l'entrée</td><td>Rarement — sauf si un conseiller l'installe avec eux</td></tr>
+        <tr><td>RDV réservé</td><td>Proactif, souvent prévu à l'avance</td><td>Sur invitation directe du staff</td></tr>
+        <tr><td>Post-salon</td><td>Crée des dossiers, uploade des documents, revient dans l'app</td><td>Disparaît sauf si un email de récap le ramène</td></tr>
+        <tr><td>Temps passé</td><td>Long, intentionnel, structuré</td><td>Court ou non planifié, dépend de l'ambiance</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ═══ SECTION 2 — LES 4 PROFILS ═══ -->
+<div class="section" id="s2">
+  <div class="sec-head"><div class="sec-num">2</div><h2>Les 4 profils — Journeys nommés</h2></div>
+
+  <p style="font-size:14px;color:var(--gray-600);margin-bottom:28px;line-height:1.7">
+    En croisant le niveau de maturité digitale avec le stade d'orientation, quatre profils distincts émergent. Chacun a un parcours nommé, une émotion dominante, et une façon d'interagir avec le salon qui lui est propre.
+  </p>
+
+  <div class="profile-grid">
+
+    <!-- ── YASMINE ── -->
+    <div class="profile-card" style="border-top:4px solid var(--blue)">
+      <div class="profile-header" style="background:var(--blue-light)">
+        <div class="avatar" style="background:var(--blue)">👩‍💻</div>
+        <div>
+          <div class="profile-name">Yasmine</div>
+          <div class="profile-sub">17 ans · Terminale · Vient seule<br>Expérience digitale élevée · Stade : décision</div>
+          <div class="profile-tags">
+            <span class="tag" style="background:#DBEAFE;color:var(--blue)">Décideur Connecté</span>
+            <span class="tag" style="background:var(--green-light);color:var(--green)">Haute intention</span>
+          </div>
+        </div>
+      </div>
+      <div class="profile-body">
+
+        <div>
+          <div class="plabel">Contexte</div>
+          <div class="context-block">
+            Yasmine a complété un test ORI sur letudiant.fr il y a deux mois. Elle sait qu'elle veut faire du droit ou des sciences po. Elle a pré-inscrit le salon, wishlisté 4 formations et préparé ses questions. Elle ne vient pas pour découvrir — elle vient pour <strong>confirmer et obtenir des réponses précises</strong>.
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Journey · "L'Architecte de son avenir"</div>
+          <div class="journey-steps">
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:var(--blue)"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">T − 8 semaines</div>
+                <div class="step-title">Test ORI + découverte des métiers du droit</div>
+                <div class="step-desc">S'inscrit à la newsletter. Commence à construire son projet d'orientation activement.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:var(--blue)"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">T − 3 semaines</div>
+                <div class="step-title">Pré-inscription salon + wishlist de 4 formations</div>
+                <div class="step-desc">Prépare ses questions école par école. Sait exactement quels stands elle veut visiter.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:var(--blue)"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Jour J</div>
+                <div class="step-title">Visite ciblée · 6 stands · 2 RDV</div>
+                <div class="step-desc">Télécharge l'app avant d'arriver. Scanne les stands de sa liste. Réserve 2 rendez-vous. Repart avec des réponses concrètes.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:var(--green)"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">J + 5 jours</div>
+                <div class="step-title">Création de 3 dossiers de candidature</div>
+                <div class="step-desc">Upload CV et lettre de motivation pour 2 écoles. Suit ses candidatures dans l'app.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:var(--green)"></div></div>
+              <div class="step-content">
+                <div class="step-moment">J + 45 jours</div>
+                <div class="step-title">Acceptée · Cycle complet tracé</div>
+                <div class="step-desc">Enregistre le résultat dans l'app. Le salon a contribué directement à son acceptation.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Narrative à lui adresser</div>
+          <div class="narrative-box" style="background:var(--blue-light);border-color:var(--blue)">
+            <span class="headline" style="color:var(--blue)">"Vous êtes déjà en avance. On vous aide à finir fort."</span>
+            <span style="color:var(--gray-700)">Yasmine n'a pas besoin d'être convaincue. Ce qu'elle veut c'est <em>confirmation, comparaison et accès facilité</em>. Le message doit lui signifier qu'on la reconnaît comme une candidate sérieuse et qu'on lui donne les outils pour finaliser son projet — pas pour le commencer.</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Recommandations équipe L'Étudiant</div>
+          <div class="action-box" style="background:var(--blue-light)">
+            <div class="action-title" style="color:var(--blue)">Avant le salon</div>
+            <ul style="color:#1E40AF">
+              <li>Email personnalisé : "Vos 4 formations sont présentes — voici leurs stands et horaires"</li>
+              <li>Notification J-1 : rappel des RDV disponibles + checklist documents à apporter</li>
+            </ul>
+          </div>
+          <div class="action-box" style="background:var(--green-light);margin-top:10px">
+            <div class="action-title" style="color:var(--green)">Après le salon</div>
+            <ul style="color:#166534">
+              <li>Email J+2 : "Créez votre dossier — vous avez déjà tout ce qu'il faut"</li>
+              <li>Alerte automatique sur les deadlines Parcoursup pour ses 4 écoles wishlistées</li>
+              <li>Si dossier créé : rappel de complétion des documents manquants</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── LÉA ── -->
+    <div class="profile-card" style="border-top:4px solid #0066CC">
+      <div class="profile-header" style="background:#EFF6FF">
+        <div class="avatar" style="background:#0066CC">📚</div>
+        <div>
+          <div class="profile-name">Léa</div>
+          <div class="profile-sub">20 ans · Post-bac en réorientation · Vient seule<br>Expérience digitale partielle · Stade : comparaison</div>
+          <div class="profile-tags">
+            <span class="tag" style="background:#DBEAFE;color:#1E40AF">Chercheur Actif</span>
+            <span class="tag" style="background:var(--yellow-light);color:var(--yellow)">Intention modérée</span>
+          </div>
+        </div>
+      </div>
+      <div class="profile-body">
+
+        <div>
+          <div class="plabel">Contexte</div>
+          <div class="context-block">
+            Léa arrête une L2 Sciences humaines qu'elle ne supporte plus. Elle cherche quelque chose de plus pratique, plus concret. Elle a découvert le salon via un article letudiant.fr sur "Que faire après une L2". Elle s'est pré-inscrite mais sans vraiment préparer sa visite. Elle vit la réorientation comme <strong>un aveu d'échec</strong>, ce qui inhibe sa démarche.
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Journey · "La Réorientation Éclairée"</div>
+          <div class="journey-steps">
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:#0066CC"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Point de départ</div>
+                <div class="step-title">Sortie de L2 · Anxiété de choix</div>
+                <div class="step-desc">Ne sait pas vers quoi se diriger. Recherche sur Google, tombe sur du contenu letudiant.fr.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:#0066CC"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">T − 2 semaines</div>
+                <div class="step-title">Découverte du salon via article de contenu</div>
+                <div class="step-desc">S'inscrit depuis l'article. Peu préparée — une seule école vaguement en tête.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:#0066CC"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Jour J</div>
+                <div class="step-title">Visite large et curieuse · 4 stands différents</div>
+                <div class="step-desc">Télécharge l'app sur place. Scanne des écoles variées (com, design, business). Réserve un RDV. Repart avec plus de questions que de réponses.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:#0066CC"></div></div>
+              <div class="step-content">
+                <div class="step-moment">J + 10 jours</div>
+                <div class="step-title">2 dossiers créés · Stagnation visible</div>
+                <div class="step-desc">Commence mais ne finit pas. Bloquée entre deux options. Sans relance, elle abandonne.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Narrative à lui adresser</div>
+          <div class="narrative-box" style="background:#EFF6FF;border-color:#0066CC">
+            <span class="headline" style="color:#0066CC">"Votre parcours n'est pas une erreur. C'est un avantage."</span>
+            <span style="color:var(--gray-700)">Avant tout, <em>légitimer son parcours atypique</em>. Les écoles de communication et de design valorisent les profils pluridisciplinaires. Le message doit transformer la réorientation en force, pas en excuse. Lui donner des outils de comparaison structurée — pas plus d'informations brutes, elle en a déjà trop.</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Recommandations équipe L'Étudiant</div>
+          <div class="action-box" style="background:#EFF6FF">
+            <div class="action-title" style="color:#1E40AF">Avant le salon</div>
+            <ul style="color:#1E40AF">
+              <li>Contenu ciblé dans l'onboarding : "Écoles ouvertes aux profils en réorientation"</li>
+              <li>Proposer le test ORI dès la pré-inscription pour structurer son projet</li>
+            </ul>
+          </div>
+          <div class="action-box" style="background:var(--yellow-light);margin-top:10px">
+            <div class="action-title" style="color:var(--yellow)">Après le salon</div>
+            <ul style="color:#7A6200">
+              <li>Détecter la stagnation : alerte si un dossier reste en "En cours" plus de 7 jours sans activité</li>
+              <li>Email de relance : "Vous avez commencé deux candidatures — voici comment les finir"</li>
+              <li>Suggérer 3 alternatives mieux alignées avec son profil déclaré</li>
+              <li>Proposer un appel ou chat avec un conseiller d'orientation</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── THOMAS ── -->
+    <div class="profile-card" style="border-top:4px solid #CA8A04">
+      <div class="profile-header" style="background:var(--yellow-light)">
+        <div class="avatar" style="background:#CA8A04">🎒</div>
+        <div>
+          <div class="profile-name">Thomas</div>
+          <div class="profile-sub">15 ans · Seconde · Vient avec son lycée<br>Aucune expérience digitale · Stade : exploration passive</div>
+          <div class="profile-tags">
+            <span class="tag" style="background:var(--yellow-light);color:var(--yellow)">Groupe Guidé</span>
+            <span class="tag" style="background:var(--purple-light);color:var(--purple)">Mineur · Cycle long</span>
+          </div>
+        </div>
+      </div>
+      <div class="profile-body">
+
+        <div>
+          <div class="plabel">Contexte</div>
+          <div class="context-block">
+            Thomas n'a pas choisi de venir. Son professeur principal a organisé une sortie. Il ne sait pas vraiment ce qu'est un salon d'orientation et n'a pas de projet. Il est potentiellement curieux de certaines choses mais <strong>n'a ni le cadre ni la maturité pour le formuler</strong>. Il est en Seconde — il lui reste deux ans avant de vraiment devoir décider.
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Journey · "L'Éveil Passif"</div>
+          <div class="journey-steps">
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:#CA8A04"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Point de départ</div>
+                <div class="step-title">Sortie scolaire subie · Aucune intention préalable</div>
+                <div class="step-desc">Suit le groupe. Regarde les stands comme une expo. Aucune donnée pré-existante.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:#CA8A04"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Jour J · Capture au score booth</div>
+                <div class="step-title">Premier contact structuré avec l'orientation</div>
+                <div class="step-desc">Un conseiller l'interpelle au score booth. Remplit un profil simple. Reçoit 3 suggestions d'écoles adaptées à son profil.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:#CA8A04"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Jour J · Un moment de curiosité réelle</div>
+                <div class="step-title">Arrêt spontané devant un stand jeux vidéo / informatique</div>
+                <div class="step-desc">Pose des questions. Télécharge une brochure. Premier signal d'intérêt capturé. Court mais précieux.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:#CA8A04"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Post-salon</div>
+                <div class="step-title">Aucune action autonome · À réactiver dans 18 mois</div>
+                <div class="step-desc">Ne revient pas dans l'app. La valeur de ce contact s'exprime en Terminale, pas maintenant.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Narrative à lui adresser</div>
+          <div class="narrative-box" style="background:var(--yellow-light);border-color:#CA8A04">
+            <span class="headline" style="color:#92400E">"Tu n'as rien à décider maintenant. Juste explorer."</span>
+            <span style="color:var(--gray-700)">Toute pression décisionnelle sur Thomas est contre-productive et risque de lui donner une image négative de L'Étudiant. L'objectif n'est pas de le convertir — c'est de <em>créer une première empreinte positive</em> sur laquelle on pourra capitaliser dans 18 mois. L'enseignant est le vrai relais à activer.</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Recommandations équipe L'Étudiant</div>
+          <div class="action-box" style="background:var(--yellow-light)">
+            <div class="action-title" style="color:#92400E">Pendant le salon</div>
+            <ul style="color:#7A6200">
+              <li>Score booth accessible et rapide — conçu pour ne pas intimider</li>
+              <li>Le conseiller capitalise sur le signal jeux vidéo : "Tu veux qu'on note ça pour te l'envoyer ?"</li>
+            </ul>
+          </div>
+          <div class="action-box" style="background:var(--purple-light);margin-top:10px">
+            <div class="action-title" style="color:var(--purple)">Après le salon</div>
+            <ul style="color:var(--purple)">
+              <li>Email enseignant : récap de la visite du groupe + suggestions d'activités pédagogiques</li>
+              <li>Email Thomas (très léger) : "Tu as découvert les métiers du jeu vidéo — voici 3 choses à explorer"</li>
+              <li>Aucune sollicitation commerciale — profil mineur + cycle trop long</li>
+              <li>Séquence de nurture déclenchée automatiquement à T+12 mois (approche Terminale)</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── KEVIN ── -->
+    <div class="profile-card" style="border-top:4px solid var(--red)">
+      <div class="profile-header" style="background:var(--red-light)">
+        <div class="avatar" style="background:var(--red)">🚶</div>
+        <div>
+          <div class="profile-name">Kevin</div>
+          <div class="profile-sub">18 ans · Terminale Pro · Walk-in spontané<br>Aucune expérience digitale · Stade : exploration</div>
+          <div class="profile-tags">
+            <span class="tag" style="background:var(--red-light);color:var(--red)">Walk-In Spontané</span>
+            <span class="tag" style="background:var(--gray-100);color:var(--gray-600)">Profil sous-représenté</span>
+          </div>
+        </div>
+      </div>
+      <div class="profile-body">
+
+        <div>
+          <div class="plabel">Contexte</div>
+          <div class="context-block">
+            Kevin a vu une affiche et est entré par curiosité. Il est en Terminale Pro — un profil chroniquement sous-représenté dans les salons d'orientation classiques, qu'il perçoit inconsciemment comme un espace fait pour les lycées généraux. Il ne sait pas que des formations sont adaptées à son profil. Il n'a aucun repère sur <strong>ce qui est possible pour lui</strong>. L'enjeu n'est pas de lui vendre une école — c'est de lui montrer qu'il est à sa place ici.
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Journey · "La Fenêtre d'Opportunité"</div>
+          <div class="journey-steps">
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:var(--red)"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Point de départ</div>
+                <div class="step-title">Walk-in · Aucun profil · Pas de projet formulé</div>
+                <div class="step-desc">Entre sans intention précise. Se sent légèrement hors-lieu. Risque de repartir sans rien dans les 10 premières minutes.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:var(--red)"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Jour J · Score booth — moment critique</div>
+                <div class="step-title">Premier contact structuré · 3 recommandations BTS/BUT</div>
+                <div class="step-desc">Un conseiller l'interpelle à l'entrée. Remplit un profil simple (niveau, domaines d'intérêt). Reçoit 3 recommandations concrètes adaptées à son bac pro. Surpris que ça existe.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:var(--red)"></div><div class="step-connector"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Jour J · Conversion recommendation → visite</div>
+                <div class="step-title">Visite des 3 écoles suggérées · 2 brochures</div>
+                <div class="step-desc">Va voir les stands recommandés. Pose des questions. Télécharge des brochures. Le salon commence à avoir du sens pour lui.</div>
+              </div>
+            </div>
+            <div class="journey-step">
+              <div class="step-line"><div class="step-dot" style="background:var(--red)"></div></div>
+              <div class="step-content">
+                <div class="step-moment">Post-salon · Email récap — moment de conversion</div>
+                <div class="step-title">Création de compte déclenchée par l'email</div>
+                <div class="step-desc">Reçoit un email récap avec ses recommandations. Crée un compte. C'est l'email qui fait la différence — sans lui, il ne revient pas.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Narrative à lui adresser</div>
+          <div class="narrative-box" style="background:var(--red-light);border-color:var(--red)">
+            <span class="headline" style="color:#991B1B">"Les filières faites pour toi existent. On te les montre."</span>
+            <span style="color:var(--gray-700)">Kevin ne vient pas avec un projet — il repart avec un plan. La narrative doit <em>inverser le rapport de force</em> : ce n'est pas à Kevin de chercher dans un catalogue, c'est à L'Étudiant de lui apporter ce qui est pertinent pour lui. Aucun jargon grandes écoles. Vocabulaire BTS, BUT, alternance, insertion pro uniquement. Le ton doit être direct, concret, sans condescendance.</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="plabel">Recommandations équipe L'Étudiant</div>
+          <div class="action-box" style="background:var(--red-light)">
+            <div class="action-title" style="color:var(--red)">Pendant le salon</div>
+            <ul style="color:#991B1B">
+              <li>Score booth positionné à l'entrée — interception proactive des walk-in sans inscription</li>
+              <li>Formulaire score booth adapté aux profils "voie pro" : questions simples, réponses rapides</li>
+              <li>Le conseiller doit aller vers Kevin, pas attendre qu'il vienne</li>
+            </ul>
+          </div>
+          <div class="action-box" style="background:var(--red-light);margin-top:10px">
+            <div class="action-title" style="color:var(--red)">Après le salon · Email J+1 (critique)</div>
+            <ul style="color:#991B1B">
+              <li>Email récap automatique envoyé dans les 24h avec ses 3 recommandations personnalisées</li>
+              <li>CTA unique : "Voir les formations → créer un compte"</li>
+              <li>Aucun contenu générique — 100% personnalisé sur son profil capturé au booth</li>
+              <li>Landing page dédiée "Terminale Pro → Et après ?" — pas la homepage générale</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- end profile-grid -->
+</div>
+
+
+<!-- ═══ SECTION 3 — NARRATIVES COMPARÉES ═══ -->
+<div class="section" id="s3">
+  <div class="sec-head"><div class="sec-num">3</div><h2>Les 4 narratives — Vue comparative</h2></div>
+
+  <div class="matrix-wrap">
+    <table class="matrix-table">
+      <thead>
+        <tr><th>Dimension</th><th>Yasmine</th><th>Léa</th><th>Thomas</th><th>Kevin</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Émotion dominante</td>
+          <td>Ambition et confiance</td>
+          <td>Anxiété et recherche de légitimité</td>
+          <td>Neutralité, curiosité timide</td>
+          <td>Sentiment d'être hors-lieu</td>
+        </tr>
+        <tr>
+          <td>Besoin réel</td>
+          <td>Confirmation et accès facilité</td>
+          <td>Légitimation et comparaison structurée</td>
+          <td>Découverte sans pression</td>
+          <td>Visibilité des filières adaptées</td>
+        </tr>
+        <tr>
+          <td>Message clé</td>
+          <td>"Vous êtes prête. On vous aide à finaliser."</td>
+          <td>"Votre parcours atypique est un atout."</td>
+          <td>"Rien à décider maintenant."</td>
+          <td>"Les filières pour toi existent."</td>
+        </tr>
+        <tr>
+          <td>Ton</td>
+          <td>Partenaire stratégique</td>
+          <td>Coach bienveillant</td>
+          <td>Ami curieux, sans pression</td>
+          <td>Guide accessible, sans jargon</td>
+        </tr>
+        <tr>
+          <td>Canal prioritaire</td>
+          <td>App + email personnalisé</td>
+          <td>Email + nudge in-app</td>
+          <td>Email enseignant + email léger</td>
+          <td>Email récap score booth J+1</td>
+        </tr>
+        <tr>
+          <td>CTA principal</td>
+          <td>Créer son dossier de candidature</td>
+          <td>Comparer + faire le test ORI</td>
+          <td>Découvrir les métiers (article)</td>
+          <td>Voir les 3 écoles recommandées</td>
+        </tr>
+        <tr>
+          <td>Timing post-salon</td>
+          <td>J+2 — quand c'est encore chaud</td>
+          <td>J+5 + alerte si stagnation détectée</td>
+          <td>J+7 (léger) puis T+12 mois</td>
+          <td>J+1 — critique, ne pas rater cette fenêtre</td>
+        </tr>
+        <tr>
+          <td>Risque si mal adressé</td>
+          <td>Ennui, sentiment d'être sur-sollicitée</td>
+          <td>Abandon définitif de la démarche</td>
+          <td>Rejet de la marque L'Étudiant</td>
+          <td>Perte définitive — ne reviendra pas seul</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ═══ SECTION 4 — RECOMMANDATIONS TRANSVERSALES ═══ -->
+<div class="section" id="s4">
+  <div class="sec-head"><div class="sec-num">4</div><h2>Recommandations transversales pour l'équipe</h2></div>
+
+  <div class="rec-grid">
+
+    <div class="rec-card">
+      <div class="rec-icon">🎯</div>
+      <h3>Identifier le profil dès l'entrée</h3>
+      <p>Le score booth à l'entrée n'est pas optionnel pour les Kevin et Thomas — c'est leur seul point de capture. Un conseiller proactif à l'entrée peut transformer un visiteur fantôme en lead qualifié. L'identification du profil conditionne tout ce qui suit.</p>
+      <div class="rec-who">Équipe terrain · Score booth · Conseillers</div>
+    </div>
+
+    <div class="rec-card">
+      <div class="rec-icon">✉️</div>
+      <h3>L'email post-salon est plus important que le salon lui-même</h3>
+      <p>Pour Kevin, c'est l'email qui déclenche la création de compte. Pour Léa, c'est l'alerte de stagnation qui sauve la candidature. Pour Thomas, c'est le message léger qui construit l'empreinte long terme. Sans email différencié par profil, la moitié des contacts du salon disparaissent.</p>
+      <div class="rec-who">Équipe CRM · Produit · Communication</div>
+    </div>
+
+    <div class="rec-card">
+      <div class="rec-icon">🔗</div>
+      <h3>L'enseignant est le relais des Thomas</h3>
+      <p>Les lycéens en groupe ne s'engagent pas seuls. L'enseignant est le vrai décideur de la valeur de cette visite. Un email bien conçu à l'enseignant — avec le récap de la visite du groupe et des suggestions d'activités pédagogiques — multiplie la valeur de chaque Thomas présent.</p>
+      <div class="rec-who">Équipe partenariats éducatifs · Communication B2B</div>
+    </div>
+
+    <div class="rec-card">
+      <div class="rec-icon">🚫</div>
+      <h3>Ne jamais utiliser le même message pour tous</h3>
+      <p>Un email générique "Merci de votre visite" envoyé à Yasmine, Léa, Thomas et Kevin est une occasion manquée pour les quatre. Yasmine le trouve inutile. Léa se sent incomprise. Thomas l'ignore. Kevin pense qu'il n'est pas concerné. La personnalisation n'est pas un luxe — c'est la condition minimale pour que le contact ait de la valeur.</p>
+      <div class="rec-who">Tous · Règle de base</div>
+    </div>
+
+    <div class="rec-card">
+      <div class="rec-icon">⏱️</div>
+      <h3>Détecter la stagnation et agir</h3>
+      <p>Un dossier bloqué en "En cours" depuis plus de 7 jours sans activité est un signal clair : Léa a besoin d'un coup de pouce. Une alerte automatique à ce moment précis, avec un message bienveillant et un CTA concret, peut récupérer une candidature qui allait être abandonnée.</p>
+      <div class="rec-who">Équipe produit · Automatisations CRM</div>
+    </div>
+
+    <div class="rec-card">
+      <div class="rec-icon">📅</div>
+      <h3>Penser Thomas à horizon 18 mois</h3>
+      <p>Thomas ne convertit pas aujourd'hui. Mais un Thomas qui a vécu une expérience positive au salon en Seconde est statistiquement plus enclin à se pré-inscrire seul au prochain salon en Terminale. L'investissement sur ce profil est long terme — ne pas l'abandonner, mais ne pas forcer non plus.</p>
+      <div class="rec-who">Équipe CRM long terme · Stratégie audience</div>
+    </div>
+
+  </div>
+
+  <div class="callout green" style="margin-top:8px">
+    <strong>La priorité numéro un :</strong> L'objectif n'est pas d'augmenter la fréquentation des salons — c'est de <strong>transformer les Kevin en Léa avant la prochaine édition</strong>. Un Kevin qui reçoit un email de récap personnalisé dans les 24h a une probabilité bien plus élevée de pré-s'inscrire au prochain salon. Le score booth combiné à l'email automatique est le levier le plus sous-exploité de tout le dispositif.
+  </div>
+</div>
+
+</div><!-- end wrap -->
+<div class="footer">L'Étudiant Salons · Profils &amp; Recommandations · Usage interne · Avril 2026</div>
+</body>
+</html>

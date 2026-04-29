@@ -157,6 +157,7 @@ export default function StudentHomePage() {
         ) : nextEvent ? (
           <a
             href={`/fair/${nextEvent.id}`}
+            className="le-card-interactive"
             style={{
               display: 'block',
               background: '#fff',
@@ -165,6 +166,8 @@ export default function StudentHomePage() {
               marginBottom: 16,
               textDecoration: 'none',
               border: `1px solid ${C.gray200}`,
+              borderRadius: 'var(--radius-md)',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
@@ -180,7 +183,13 @@ export default function StudentHomePage() {
                 </div>
               </div>
               {daysUntil !== null && (
-                <div style={{ textAlign: 'center', background: C.tomate, color: '#fff', padding: '12px 16px', minWidth: 80 }}>
+                <div style={{
+                  textAlign: 'center',
+                  background: `linear-gradient(135deg, ${C.tomate} 0%, ${C.tomateDark} 100%)`,
+                  color: '#fff', padding: '12px 16px', minWidth: 80,
+                  borderRadius: 'var(--radius-sm)',
+                  boxShadow: '0 4px 12px -2px rgba(236,31,39,0.30)',
+                }}>
                   <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1, letterSpacing: '-0.03em' }}>{daysUntil}</div>
                   <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: 4 }}>
                     {daysUntil <= 1 ? 'jour' : 'jours'}
@@ -196,13 +205,15 @@ export default function StudentHomePage() {
           <div
             style={{
               background: nudgeBg,
-              borderLeft: `6px solid ${nudgeColor}`,
+              borderLeft: `4px solid ${nudgeColor}`,
               padding: '16px 18px',
               marginBottom: 20,
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               gap: 12,
+              borderRadius: 'var(--radius-md)',
+              boxShadow: 'var(--shadow-xs)',
             }}
           >
             <div style={{ flex: 1 }}>
@@ -249,6 +260,7 @@ export default function StudentHomePage() {
             <a
               key={a.href}
               href={a.href}
+              className="le-card-interactive"
               style={{
                 background: '#fff',
                 borderTop: `3px solid ${a.color}`,
@@ -257,6 +269,8 @@ export default function StudentHomePage() {
                 textDecoration: 'none',
                 border: `1px solid ${C.gray200}`,
                 borderTopWidth: 3,
+                borderRadius: 'var(--radius-md)',
+                boxShadow: 'var(--shadow-xs)',
               }}
             >
               <div style={{ fontSize: 24, color: a.color, marginBottom: 4, lineHeight: 1 }}>{a.glyph}</div>
@@ -285,6 +299,7 @@ export default function StudentHomePage() {
                 <a
                   key={ev.id}
                   href={`/fair/${ev.id}`}
+                  className="le-card-interactive"
                   style={{
                     background: '#fff',
                     borderLeft: `4px solid ${color}`,
@@ -295,6 +310,8 @@ export default function StudentHomePage() {
                     alignItems: 'center',
                     border: `1px solid ${C.gray200}`,
                     borderLeftWidth: 4,
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-xs)',
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -329,19 +346,22 @@ export default function StudentHomePage() {
                 <a
                   key={school.id}
                   href={`/schools/${school.id}`}
+                  className="le-card-interactive"
                   style={{
                     background: '#fff',
                     padding: 0,
                     textDecoration: 'none',
                     border: `1px solid ${C.gray200}`,
                     overflow: 'hidden',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-xs)',
                   }}
                 >
                   <div
                     style={{
                       width: '100%',
                       height: 70,
-                      background: color,
+                      background: `linear-gradient(135deg, ${color} 0%, ${color}DD 100%)`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -350,6 +370,8 @@ export default function StudentHomePage() {
                       color: '#fff',
                       fontStyle: 'italic',
                       letterSpacing: '-0.03em',
+                      position: 'relative',
+                      overflow: 'hidden',
                     }}
                   >
                     {school.name.substring(0, 2).toUpperCase()}

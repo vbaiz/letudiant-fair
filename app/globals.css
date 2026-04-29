@@ -35,16 +35,24 @@
 :root {
   /* Primary */
   --le-red: #EC1F27;
+  --le-red-dark: #C41520;
+  --le-red-light: #FFF0F1;
+  --le-red-glow: rgba(236, 31, 39, 0.18);
   --le-tomate: #EC1F27;
   --le-blanc: #F8F7F2;
   --le-noir: #191829;
 
   /* Secondary */
   --le-citron: #FCD716;
+  --le-citron-light: #FFF9E6;
   --le-spirit: #FF6B35;
   --le-framboise: #E91E63;
   --le-menthe: #4DB8A8;
   --le-piscine: #0066CC;
+  --le-piscine-light: #E6F0FF;
+  --le-blue: #003C8F;
+  --le-blue-light: #EFF6FF;
+  --le-yellow-light: #FEF3C7;
   --le-tropical: #00BFB3;
   --le-passion: #FFC0D9;
   --le-cel: #7FD8D9;
@@ -58,8 +66,78 @@
   --le-gray-900: #1A1A1A;
   --le-gray-700: #3D3D3D;
   --le-gray-500: #6B6B6B;
+  --le-gray-300: #D4D4D4;
   --le-gray-200: #E8E8E8;
   --le-gray-100: #F4F4F4;
+  --le-gray-50:  #FAFAFA;
+
+  /* ─── Modern design tokens (Stitch-inspired) ─── */
+  /* Multi-layer shadows */
+  --shadow-xs: 0 1px 2px rgba(16,24,40,0.06);
+  --shadow-sm: 0 1px 3px rgba(16,24,40,0.08), 0 1px 2px rgba(16,24,40,0.04);
+  --shadow-md: 0 4px 8px -2px rgba(16,24,40,0.08), 0 2px 4px -2px rgba(16,24,40,0.04);
+  --shadow-lg: 0 12px 24px -6px rgba(16,24,40,0.10), 0 4px 8px -2px rgba(16,24,40,0.06);
+  --shadow-xl: 0 24px 48px -12px rgba(16,24,40,0.18), 0 8px 16px -8px rgba(16,24,40,0.08);
+  --shadow-glow-red: 0 8px 24px -4px rgba(236,31,39,0.22), 0 4px 8px -4px rgba(236,31,39,0.10);
+  --shadow-glow-blue: 0 8px 24px -4px rgba(0,102,204,0.22), 0 4px 8px -4px rgba(0,102,204,0.10);
+
+  /* Smooth easing curves */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Modern radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+
+  /* Subtle brand-tinted backgrounds */
+  --bg-warm: #FAF8F5;
+  --bg-cream: #F8F7F2;
+  --bg-soft: linear-gradient(180deg, #FDFBF8 0%, #F8F7F2 100%);
+  --bg-blush: linear-gradient(135deg, #FFF9F5 0%, #FFF0F1 50%, #FFF9E6 100%);
+  --bg-aurora: radial-gradient(at 0% 0%, rgba(236,31,39,0.04) 0%, transparent 50%),
+               radial-gradient(at 100% 0%, rgba(0,102,204,0.04) 0%, transparent 50%),
+               radial-gradient(at 50% 100%, rgba(252,215,22,0.05) 0%, transparent 50%);
+}
+
+/* ─── Modern utility classes ─── */
+.le-fade-in   { animation: leFadeIn   .5s var(--ease-out) both; }
+.le-slide-up  { animation: leSlideUp  .55s var(--ease-out) both; }
+.le-scale-in  { animation: leScaleIn  .45s var(--ease-spring) both; }
+
+@keyframes leFadeIn   { from { opacity: 0 } to { opacity: 1 } }
+@keyframes leSlideUp  { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes leScaleIn  { from { opacity: 0; transform: scale(.96) } to { opacity: 1; transform: scale(1) } }
+@keyframes leShimmer  { 0% { background-position: -800px 0 } 100% { background-position: 800px 0 } }
+@keyframes leBreathe  { 0%,100% { box-shadow: 0 0 0 0 rgba(236,31,39,0) } 50% { box-shadow: 0 0 0 8px rgba(236,31,39,0.10) } }
+@keyframes lePulseDot { 0%,100% { opacity: 1; transform: scale(1) } 50% { opacity: .55; transform: scale(.85) } }
+
+/* Modern surface — for floating cards */
+.le-surface {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(16,24,40,0.04);
+}
+
+.le-surface-elevated {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid rgba(16,24,40,0.04);
+}
+
+/* Modern auth backdrop */
+.le-auth-bg {
+  min-height: 100vh;
+  background:
+    radial-gradient(at 12% 15%, rgba(236,31,39,0.07) 0%, transparent 38%),
+    radial-gradient(at 88% 12%, rgba(0,102,204,0.06) 0%, transparent 40%),
+    radial-gradient(at 50% 95%, rgba(252,215,22,0.08) 0%, transparent 45%),
+    linear-gradient(180deg, #FDFBF8 0%, #F8F7F2 100%);
 }
 
 /* ─── Base resets ─── */
@@ -244,11 +322,19 @@ body {
   background: var(--le-red);
   color: #ffffff;
   border-color: var(--le-red);
+  box-shadow: 0 1px 2px rgba(236,31,39,0.15), 0 4px 12px -2px rgba(236,31,39,0.20);
+  transition: background .2s var(--ease-out), box-shadow .25s var(--ease-out), transform .15s var(--ease-out);
 }
 
 .le-btn-primary:hover:not(:disabled) {
   background: var(--le-red-dark);
   border-color: var(--le-red-dark);
+  box-shadow: 0 2px 4px rgba(236,31,39,0.20), 0 8px 20px -2px rgba(236,31,39,0.30);
+  transform: translateY(-1px);
+}
+
+.le-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .le-btn-secondary {
@@ -314,13 +400,29 @@ body {
 /* ─── Cards ─── */
 .le-card {
   background: #ffffff;
-  border: 1px solid var(--le-gray-200);
-  border-radius: 8px;
+  border: 1px solid rgba(16,24,40,0.06);
+  border-radius: var(--radius-md);
   overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out), border-color .25s var(--ease-out);
+}
+
+.le-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: rgba(16,24,40,0.10);
 }
 
 .le-card-padded {
   padding: 20px;
+}
+
+.le-card-interactive {
+  cursor: pointer;
+}
+
+.le-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 /* ─── Form inputs ─── */
@@ -334,14 +436,14 @@ body {
 
 .le-input {
   width: 100%;
-  padding: 10px 14px;
+  padding: 12px 16px;
   font-size: 0.9375rem;
   color: var(--le-gray-900);
   background: #ffffff;
   border: 1.5px solid var(--le-gray-200);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color .2s var(--ease-out), box-shadow .25s var(--ease-out), background .2s var(--ease-out);
   line-height: 1.5;
 }
 
@@ -349,9 +451,15 @@ body {
   color: var(--le-gray-500);
 }
 
+.le-input:hover:not(:focus):not(:disabled) {
+  border-color: var(--le-gray-300);
+  background: var(--le-gray-50);
+}
+
 .le-input:focus {
   border-color: var(--le-red);
-  box-shadow: 0 0 0 3px rgba(236, 31, 39, 0.12);
+  box-shadow: 0 0 0 4px rgba(236, 31, 39, 0.10);
+  background: #ffffff;
 }
 
 .le-input:disabled {

@@ -134,29 +134,37 @@ function OnboardingInner() {
     }
   }
 
-  const inputStyle = { width: '100%', boxSizing: 'border-box' as const, border: '1px solid #E0E0E0', borderRadius: 12, padding: '13px 16px', fontSize: '0.9375rem', outline: 'none', fontFamily: 'inherit', color: '#1A1A1A', background: '#fff' }
-  const labelStyle = { display: 'block' as const, fontSize: '0.8125rem', fontWeight: 600, color: '#4B4B4B', marginBottom: 6 }
-  const btnPrimary = { width: '100%', background: '#EC1F27', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: '1rem', fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }
+  const inputStyle = { width: '100%', boxSizing: 'border-box' as const, border: '1.5px solid #E8E8E8', borderRadius: 12, padding: '14px 16px', fontSize: '0.9375rem', outline: 'none', fontFamily: 'inherit', color: '#1A1A1A', background: '#fff', transition: 'border-color .2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .25s cubic-bezier(0.16, 1, 0.3, 1)' }
+  const labelStyle = { display: 'block' as const, fontSize: '0.8125rem', fontWeight: 600, color: '#3D3D3D', marginBottom: 8 }
+  const btnPrimary = { width: '100%', background: 'linear-gradient(135deg, #EC1F27 0%, #C41520 100%)', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontSize: '1rem', fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1, boxShadow: loading ? 'none' : '0 4px 12px -2px rgba(236,31,39,0.30)', transition: 'all .2s cubic-bezier(0.16, 1, 0.3, 1)' }
 
   // Steps for student
   const totalSteps = role === 'student' ? 4 : 3
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F7F7F7', fontFamily: 'system-ui, sans-serif' }}>
+    <div className="le-auth-bg" style={{ minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
       {/* Header */}
-      <div style={{ background: '#EC1F27', padding: '24px 24px 32px', color: '#fff' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-          <Logo variant="inverted" size="md" />
+      <div style={{ padding: '32px 24px 16px', maxWidth: 520, margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+          <Logo variant="default" size="md" />
         </div>
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
           {Array.from({ length: totalSteps }).map((_, i) => (
-            <div key={i} style={{ height: 4, borderRadius: 2, background: i < step ? '#fff' : 'rgba(255,255,255,0.3)', flex: 1, maxWidth: 60, transition: 'background 0.3s' }} />
+            <div key={i} style={{
+              height: 5, borderRadius: 999,
+              background: i < step
+                ? 'linear-gradient(90deg, #EC1F27 0%, #C41520 100%)'
+                : '#E8E8E8',
+              flex: 1, maxWidth: 60,
+              transition: 'background .4s cubic-bezier(0.16, 1, 0.3, 1)',
+              boxShadow: i < step ? '0 2px 6px -2px rgba(236,31,39,0.30)' : 'none',
+            }} />
           ))}
         </div>
-        <p style={{ textAlign: 'center', margin: '10px 0 0', fontSize: '0.8125rem', opacity: 0.8 }}>Étape {step}/{totalSteps}</p>
+        <p style={{ textAlign: 'center', margin: '6px 0 0', fontSize: 12, fontWeight: 600, color: '#6B6B6B', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Étape {step} / {totalSteps}</p>
       </div>
 
-      <div style={{ padding: '28px 24px', maxWidth: 480, margin: '0 auto' }}>
+      <div className="le-scale-in le-surface-elevated" style={{ padding: '32px 28px', maxWidth: 520, margin: '16px auto 32px' }}>
 
         {/* ─── STUDENT STEPS ─── */}
         {role === 'student' && (
@@ -215,7 +223,7 @@ function OnboardingInner() {
                   <input style={inputStyle} value={form.postalCode} onChange={e => update('postalCode', e.target.value)} placeholder="75001" maxLength={5} />
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button style={{ ...btnPrimary, background: '#F0F0F0', color: '#4B4B4B', width: 'auto', padding: '14px 24px' }} onClick={() => setStep(1)}>← Retour</button>
+                  <button style={{ ...btnPrimary, background: '#fff', color: '#3D3D3D', width: 'auto', padding: '14px 24px', border: '1.5px solid #E8E8E8', boxShadow: 'none' }} onClick={() => setStep(1)}>← Retour</button>
                   <button style={{ ...btnPrimary }} onClick={() => { if (!form.level) { toast('Choisissez votre niveau', 'warning'); return } setStep(3) }}>Continuer →</button>
                 </div>
               </div>
@@ -245,7 +253,7 @@ function OnboardingInner() {
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button style={{ ...btnPrimary, background: '#F0F0F0', color: '#4B4B4B', width: 'auto', padding: '14px 24px' }} onClick={() => setStep(2)}>← Retour</button>
+                  <button style={{ ...btnPrimary, background: '#fff', color: '#3D3D3D', width: 'auto', padding: '14px 24px', border: '1.5px solid #E8E8E8', boxShadow: 'none' }} onClick={() => setStep(2)}>← Retour</button>
                   <button style={btnPrimary} onClick={() => { if (!form.optinLetudiant) { toast('Veuillez accepter les communications L\'Étudiant', 'warning'); return } setStep(4) }}>Continuer →</button>
                 </div>
               </div>
@@ -274,7 +282,7 @@ function OnboardingInner() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button style={{ ...btnPrimary, background: '#F0F0F0', color: '#4B4B4B', width: 'auto', padding: '14px 24px' }} onClick={() => setStep(3)}>← Retour</button>
+                  <button style={{ ...btnPrimary, background: '#fff', color: '#3D3D3D', width: 'auto', padding: '14px 24px', border: '1.5px solid #E8E8E8', boxShadow: 'none' }} onClick={() => setStep(3)}>← Retour</button>
                   <button style={{ ...btnPrimary, opacity: loading ? 0.7 : 1 }} onClick={handleSubmit} disabled={loading}>
                     {loading ? 'Création en cours…' : 'Créer mon espace →'}
                   </button>
@@ -328,7 +336,7 @@ function OnboardingInner() {
                   </button>
                 ))}
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button style={{ ...btnPrimary, background: '#F0F0F0', color: '#4B4B4B', width: 'auto', padding: '14px 24px' }} onClick={() => setStep(1)}>← Retour</button>
+                  <button style={{ ...btnPrimary, background: '#fff', color: '#3D3D3D', width: 'auto', padding: '14px 24px', border: '1.5px solid #E8E8E8', boxShadow: 'none' }} onClick={() => setStep(1)}>← Retour</button>
                   <button style={btnPrimary} onClick={() => {
                     if (!form.selectedFair) { toast('Sélectionnez un salon pour continuer', 'warning'); return }
                     setStep(3)
@@ -346,7 +354,7 @@ function OnboardingInner() {
                   <p style={{ margin: 0, fontSize: '0.875rem', color: '#4B4B4B' }}>{form.teacherEmail}</p>
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button style={{ ...btnPrimary, background: '#F0F0F0', color: '#4B4B4B', width: 'auto', padding: '14px 24px' }} onClick={() => setStep(2)}>← Retour</button>
+                  <button style={{ ...btnPrimary, background: '#fff', color: '#3D3D3D', width: 'auto', padding: '14px 24px', border: '1.5px solid #E8E8E8', boxShadow: 'none' }} onClick={() => setStep(2)}>← Retour</button>
                   <button style={{ ...btnPrimary, opacity: loading ? 0.7 : 1 }} onClick={handleSubmit} disabled={loading}>
                     {loading ? 'Création…' : 'Créer mon espace →'}
                   </button>
@@ -400,7 +408,7 @@ function OnboardingInner() {
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button style={{ ...btnPrimary, background: '#F0F0F0', color: '#4B4B4B', width: 'auto', padding: '14px 24px' }} onClick={() => setStep(1)}>← Retour</button>
+                  <button style={{ ...btnPrimary, background: '#fff', color: '#3D3D3D', width: 'auto', padding: '14px 24px', border: '1.5px solid #E8E8E8', boxShadow: 'none' }} onClick={() => setStep(1)}>← Retour</button>
                   <button style={{ ...btnPrimary, opacity: loading ? 0.7 : 1 }} onClick={handleSubmit} disabled={loading}>
                     {loading ? 'Création…' : 'Créer mon espace →'}
                   </button>
