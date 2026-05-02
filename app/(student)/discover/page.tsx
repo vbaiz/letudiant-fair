@@ -687,9 +687,13 @@ export default function DiscoverPage() {
 
   const handleSwipe = async (direction: string, formation: FormationWithSchool) => {
     try {
+      // Normalize direction to lowercase (TinderCard sends 'RIGHT', 'LEFT', 'UP', 'DOWN')
+      const dir = direction?.toLowerCase() || '';
+      console.log('🔄 Swipe detected:', direction, '→ normalized:', dir);
+
       setGone((prev) => new Set(prev).add(formation.id));
 
-      if (direction === 'right') {
+      if (dir === 'right') {
         setRightCount((n) => {
           const newCount = n + 1;
           return newCount;
@@ -707,7 +711,7 @@ export default function DiscoverPage() {
             setPendingSaves((n) => Math.max(0, n - 1));
           }
         }
-      } else if (direction === 'left') {
+      } else if (dir === 'left') {
         // Left swipe: same as X button (skip without saving)
         showToast(`⏭️ Formation passée`);
       }
@@ -969,13 +973,20 @@ export default function DiscoverPage() {
               <TinderCard
                 key={currentCard.id}
                 onSwipe={(dir) => {
+                  console.log('📱 TinderCard onSwipe fired with direction:', dir);
                   handleSwipe(dir, currentCard);
+                }}
+                onCardLeftScreen={(dir) => {
+                  console.log('🚀 Card left screen in direction:', dir);
                 }}
                 preventSwipe={['up', 'down']}
                 className="swipe-card"
               >
                   <div
-                    onClick={() => handleAction('center')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAction('center');
+                    }}
                     style={{
                       height: 420,
                       borderRadius: 16,
