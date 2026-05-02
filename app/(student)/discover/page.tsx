@@ -916,6 +916,7 @@ export default function DiscoverPage() {
             gap: 8,
           }}
         >
+          <span style={{ fontSize: 18 }}>💚</span>
           {toast}
         </div>
       )}
