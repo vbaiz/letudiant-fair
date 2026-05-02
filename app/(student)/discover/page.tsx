@@ -766,8 +766,9 @@ export default function DiscoverPage() {
 
     const deltaX = e.clientX - touchStart.x;
     const deltaY = e.clientY - touchStart.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-    // Only count as swipe if horizontal movement > vertical movement
+    // Check if it's a swipe (movement > 50px)
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
       if (deltaX < 0) {
         // Swiped LEFT
@@ -778,6 +779,10 @@ export default function DiscoverPage() {
         console.log('👉 Manual swipe detected: RIGHT');
         handleManualSwipe('right');
       }
+    } else if (distance < 10) {
+      // Very small movement = simple click → flip card
+      console.log('🔄 Click detected: Flipping card');
+      toggleFlip(currentCard.id);
     }
 
     setTouchStart(null);
