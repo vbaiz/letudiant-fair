@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import SegmentExplainer from '@/components/ui/SegmentExplainer'
 
 /* ─── palette (matches Utilisateurs page) ─── */
 const C = {
@@ -35,8 +36,8 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; light: string 
 }
 
 const ORIENTATION_CONFIG = [
-  { key: 'exploring',  label: 'Exploration (0-40)',  color: C.citron,  light: C.citronLight, fg: '#7A6200' },
-  { key: 'comparing',  label: 'Comparaison (41-65)', color: C.piscine, light: C.piscineLight, fg: '#003C8F' },
+  { key: 'exploring',  label: 'Explorateur (0-32)',  color: C.citron,  light: C.citronLight, fg: '#7A6200' },
+  { key: 'comparing',  label: 'Comparaison (33-55)', color: C.piscine, light: C.piscineLight, fg: '#003C8F' },
   { key: 'deciding',   label: 'Décision (66-100)',   color: C.tomate,  light: C.tomateLight, fg: '#B0001A' },
   { key: 'unknown',    label: 'Score non calculé',   color: C.gray500, light: C.gray100, fg: '#3D3D3D' },
 ]
@@ -84,7 +85,7 @@ export default function AdminSegmentsPage() {
         students.forEach(s => {
           const score = s.orientation_score
           if (score === null || score === undefined) buckets.unknown += 1
-          else if (score <= 40) buckets.exploring += 1
+          else if (score <= 32) buckets.exploring += 1
           else if (score <= 65) buckets.comparing += 1
           else buckets.deciding += 1
         })
@@ -146,7 +147,8 @@ export default function AdminSegmentsPage() {
             {error}
           </div>
         )}
-
+        
+        <SegmentExplainer />
         {/* ── By Role ── */}
         <section style={{ marginBottom: 40 }}>
           <h2 style={{
