@@ -740,6 +740,50 @@ export default function DiscoverPage() {
 
   const currentCard = formations.find((c) => !gone.has(c.id));
 
+  // State for manual swipe detection
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleManualSwipe = (direction: 'left' | 'right') => {
+    if (!currentCard) return;
+    handleSwipe(direction, currentCard);
+  };
+
+  const onCardMouseDown = (e: React.MouseEvent) => {
+    setTouchStart({ x: e.clientX, y: e.clientY });
+    setIsDragging(true);
+  };
+
+  const onCardMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !touchStart) return;
+  };
+
+  const onCardMouseUp = (e: React.MouseEvent) => {
+    if (!isDragging || !touchStart || !currentCard) {
+      setIsDragging(false);
+      return;
+    }
+
+    const deltaX = e.clientX - touchStart.x;
+    const deltaY = e.clientY - touchStart.y;
+
+    // Only count as swipe if horizontal movement > vertical movement
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX < 0) {
+        // Swiped LEFT
+        console.log('👈 Manual swipe detected: LEFT');
+        handleManualSwipe('left');
+      } else {
+        // Swiped RIGHT
+        console.log('👉 Manual swipe detected: RIGHT');
+        handleManualSwipe('right');
+      }
+    }
+
+    setTouchStart(null);
+    setIsDragging(false);
+  };
+
   const handleAction = (direction: 'left' | 'center' | 'right') => {
     if (!currentCard) {
       return;
@@ -983,6 +1027,10 @@ export default function DiscoverPage() {
                 className="swipe-card"
               >
                   <div
+                    onMouseDown={onCardMouseDown}
+                    onMouseMove={onCardMouseMove}
+                    onMouseUp={onCardMouseUp}
+                    onMouseLeave={onCardMouseUp}
                     style={{
                       height: 420,
                       borderRadius: 16,
@@ -990,7 +1038,7 @@ export default function DiscoverPage() {
                       position: 'relative',
                       overflow: 'hidden',
                       boxShadow: '0 8px 40px rgba(26,26,26,0.15)',
-                      cursor: 'grab',
+                      cursor: isDragging ? 'grabbing' : 'grab',
                       touchAction: 'none',
                       userSelect: 'none',
                     }}
