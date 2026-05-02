@@ -23,11 +23,18 @@ interface Stand {
   type: string;
 }
 
-// Stands and sessions are configured per event by the organiser. Until the
-// event_stands / event_sessions tables are wired, we render empty states
-// rather than shipping fictitious schools.
+// Stands are still placeholders — programme is now fetched live from event_programs.
 const STANDS: Stand[] = [];
-const SESSIONS: { time: string; title: string; room: string; tag: 'red' | 'blue' | 'yellow' | 'gray' }[] = [];
+
+interface ProgramSession {
+  id: string;
+  title: string;
+  description: string | null;
+  speaker: string | null;
+  location: string | null;
+  start_time: string;
+  end_time: string;
+}
 
 interface EventData {
   name: string;
@@ -47,6 +54,8 @@ export default function FairPage({
   const [selectedStand, setSelectedStand] = useState<Stand | null>(null);
   const [event, setEvent] = useState<EventData | null>(null);
   const [eventLoading, setEventLoading] = useState(true);
+  const [sessions, setSessions] = useState<ProgramSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
 
   useEffect(() => {
     async function loadEvent() {
@@ -60,6 +69,21 @@ export default function FairPage({
       setEventLoading(false);
     }
     loadEvent();
+  }, [eventId]);
+
+  useEffect(() => {
+    async function loadProgram() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/programs`);
+        const json = await res.json();
+        if (json.success) setSessions(json.data || []);
+      } catch (err) {
+        console.error('Failed to load programme', err);
+      } finally {
+        setSessionsLoading(false);
+      }
+    }
+    loadProgram();
   }, [eventId]);
 
   const formattedDate = event?.event_date
@@ -79,8 +103,8 @@ export default function FairPage({
             <Tag variant="red" style={{ marginBottom: 6 }}>Salon</Tag>
             {eventLoading ? (
               <>
-                <Skeleton height={22} width="70%" style={{ marginBottom: 6 }} />
-                <Skeleton height={14} width="55%" />
+                <Skeleton style={{ height: 22, width: '70%', marginBottom: 6 }} />
+                <Skeleton style={{ height: 14, width: '55%' }} />
               </>
             ) : (
               <>
@@ -233,41 +257,59 @@ export default function FairPage({
           <div>
             <SectionLabel>Programme du jour</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-              {SESSIONS.length === 0 && (
+              {sessionsLoading ? (
+                <>
+                  <Skeleton style={{ height: 70 }} />
+                  <Skeleton style={{ height: 70 }} />
+                </>
+              ) : sessions.length === 0 ? (
                 <p style={{ color: '#6B6B6B', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
                   Le programme sera publié prochainement par l&apos;organisateur du salon.
                 </p>
-              )}
-              {SESSIONS.map((session, i) => (
-                <div
-                  key={i}
-                  className="le-card"
-                  style={{ padding: '16px 20px', display: 'flex', gap: 16, alignItems: 'flex-start' }}
-                >
-                  <div
-                    style={{
-                      background: '#F4F4F4',
-                      borderRadius: 8,
-                      padding: '8px 10px',
-                      textAlign: 'center',
-                      flexShrink: 0,
-                      minWidth: 56,
-                    }}
-                  >
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#EC1F27', display: 'block' }}>
-                      {session.time}
-                    </span>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 600, fontSize: 14, margin: '0 0 6px', color: '#1A1A1A' }}>
-                      {session.title}
-                    </p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Tag variant={session.tag}>{session.room}</Tag>
+              ) : (
+                sessions.map((session) => {
+                  const start = new Date(session.start_time);
+                  const timeLabel = start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                  return (
+                    <div
+                      key={session.id}
+                      className="le-card"
+                      style={{ padding: '16px 20px', display: 'flex', gap: 16, alignItems: 'flex-start' }}
+                    >
+                      <div
+                        style={{
+                          background: '#F4F4F4',
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          textAlign: 'center',
+                          flexShrink: 0,
+                          minWidth: 56,
+                        }}
+                      >
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#EC1F27', display: 'block' }}>
+                          {timeLabel}
+                        </span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 600, fontSize: 14, margin: '0 0 6px', color: '#1A1A1A' }}>
+                          {session.title}
+                        </p>
+                        {session.description && (
+                          <p style={{ fontSize: 12, color: '#6B6B6B', margin: '0 0 6px' }}>
+                            {session.description}
+                          </p>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {session.location && <Tag variant="blue">{session.location}</Tag>}
+                          {session.speaker && (
+                            <span className="le-caption" style={{ fontSize: 11 }}>👤 {session.speaker}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </div>
         )}

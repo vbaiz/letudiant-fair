@@ -1,7 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import type { EventRow } from '@/lib/supabase/types'
+import type { EventRow, EventProgramRow } from '@/lib/supabase/types'
 
 const C = {
   tomate: '#EC1F27', tomateLight: '#FFF0F1',
@@ -32,6 +32,15 @@ interface StudentRegistration {
   exit_qr: string | null
 }
 
+interface SchoolOption {
+  id: string
+  name: string
+  type: string
+  city: string
+}
+
+type Tab = 'details' | 'exhibitors' | 'students' | 'programme' | 'qrcodes'
+
 export default function SalonDetailPage() {
   const router = useRouter()
   const params = useParams()
@@ -42,21 +51,48 @@ export default function SalonDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [formData, setFormData] = useState({ name: '', city: '', event_date: '', is_active: false })
-  const [tab, setTab] = useState<'details' | 'exhibitors' | 'students' | 'qrcodes'>('details')
+  const [tab, setTab] = useState<Tab>('details')
+
   const [exhibitors, setExhibitors] = useState<ExhibitorRegistration[]>([])
   const [students, setStudents] = useState<StudentRegistration[]>([])
+  const [programs, setPrograms] = useState<EventProgramRow[]>([])
+
   const [updating, setUpdating] = useState(false)
   const [generatingQR, setGeneratingQR] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
+
+  // Manual exhibitor add
+  const [showAddExhibitor, setShowAddExhibitor] = useState(false)
+  const [schoolQuery, setSchoolQuery] = useState('')
+  const [schoolResults, setSchoolResults] = useState<SchoolOption[]>([])
+  const [addingExhibitor, setAddingExhibitor] = useState(false)
+
+  // Program form
+  const [showAddProgram, setShowAddProgram] = useState(false)
+  const [editingProgramId, setEditingProgramId] = useState<string | null>(null)
+  const [programForm, setProgramForm] = useState({
+    title: '', description: '', speaker: '', location: '',
+    start_time: '', end_time: '',
+  })
+  const [savingProgram, setSavingProgram] = useState(false)
 
   useEffect(() => { fetchSalon() }, [eventId])
 
   useEffect(() => {
     if (!salon) return
     if (tab === 'exhibitors') fetchExhibitors()
-    if (tab === 'students' || tab === 'qrcodes') fetchStudents()
+    if (tab === 'students') fetchStudents()
+    if (tab === 'programme') fetchPrograms()
   }, [tab, salon])
 
+  // Live school search (debounced)
+  useEffect(() => {
+    if (!showAddExhibitor) return
+    const t = setTimeout(() => searchSchools(schoolQuery), 250)
+    return () => clearTimeout(t)
+  }, [schoolQuery, showAddExhibitor])
+
+  // ── Fetchers ────────────────────────────────────────────────────────────────
   async function fetchSalon() {
     setLoading(true)
     setError(null)
@@ -73,9 +109,7 @@ export default function SalonDetailPage() {
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   async function fetchExhibitors() {
@@ -83,9 +117,7 @@ export default function SalonDetailPage() {
       const res = await fetch(`/api/admin/events/${eventId}/exhibitors`)
       const data = await res.json()
       setExhibitors(data.data || [])
-    } catch (err) {
-      console.error('Failed to fetch exhibitors:', err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   async function fetchStudents() {
@@ -93,14 +125,31 @@ export default function SalonDetailPage() {
       const res = await fetch(`/api/admin/events/${eventId}/students`)
       const data = await res.json()
       setStudents(data.data || [])
-    } catch (err) {
-      console.error('Failed to fetch students:', err)
-    }
+    } catch (err) { console.error(err) }
   }
 
+  async function fetchPrograms() {
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/programs`)
+      const data = await res.json()
+      setPrograms(data.data || [])
+    } catch (err) { console.error(err) }
+  }
+
+  async function searchSchools(q: string) {
+    try {
+      const url = q.trim()
+        ? `/api/admin/schools?q=${encodeURIComponent(q)}&limit=20`
+        : `/api/admin/schools?limit=20`
+      const res = await fetch(url)
+      const data = await res.json()
+      setSchoolResults(data.data || [])
+    } catch (err) { console.error(err) }
+  }
+
+  // ── Mutations ───────────────────────────────────────────────────────────────
   async function handleUpdate() {
-    setUpdating(true)
-    setError(null)
+    setUpdating(true); setError(null)
     try {
       const res = await fetch(`/api/admin/events/${eventId}`, {
         method: 'PATCH',
@@ -118,72 +167,145 @@ export default function SalonDetailPage() {
       setEditMode(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de mise à jour')
-    } finally {
-      setUpdating(false)
-    }
+    } finally { setUpdating(false) }
   }
 
   async function handleRemoveExhibitor(exhibitorId: string) {
     setRemovingId(exhibitorId)
     try {
-      const res = await fetch(`/api/admin/events/${eventId}/exhibitors?exhibitor_id=${exhibitorId}`, {
-        method: 'DELETE',
-      })
+      const res = await fetch(
+        `/api/admin/events/${eventId}/exhibitors?exhibitor_id=${exhibitorId}`,
+        { method: 'DELETE' }
+      )
       if (!res.ok) throw new Error('Erreur lors de la suppression')
       setExhibitors(prev => prev.filter(e => e.id !== exhibitorId))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur')
-    } finally {
-      setRemovingId(null)
-    }
+    } finally { setRemovingId(null) }
   }
 
-  async function handleGenerateQRCodes() {
-    setGeneratingQR(true)
-    setError(null)
+  async function handleAddExhibitor(school: SchoolOption) {
+    setAddingExhibitor(true); setError(null)
     try {
-      const res = await fetch(`/api/admin/events/${eventId}/generate-qr`, { method: 'POST' })
+      const res = await fetch(`/api/admin/events/${eventId}/exhibitors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ school_id: school.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      setExhibitors(prev => [data.data, ...prev])
+      setShowAddExhibitor(false)
+      setSchoolQuery('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur')
+    } finally { setAddingExhibitor(false) }
+  }
+
+  async function handleGenerateEventQR() {
+    setGeneratingQR(true); setError(null)
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/generate-qr?mode=event`, {
+        method: 'POST',
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      await fetchStudents()
+      // refresh salon to pick up entry_qr / exit_qr
+      setSalon(prev => prev ? { ...prev, entry_qr: data.data.entry_qr, exit_qr: data.data.exit_qr } : prev)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de génération QR')
-    } finally {
-      setGeneratingQR(false)
+    } finally { setGeneratingQR(false) }
+  }
+
+  function openProgramForm(p?: EventProgramRow) {
+    if (p) {
+      setEditingProgramId(p.id)
+      setProgramForm({
+        title: p.title,
+        description: p.description ?? '',
+        speaker: p.speaker ?? '',
+        location: p.location ?? '',
+        start_time: p.start_time.slice(0, 16),
+        end_time: p.end_time.slice(0, 16),
+      })
+    } else {
+      setEditingProgramId(null)
+      setProgramForm({ title: '', description: '', speaker: '', location: '', start_time: '', end_time: '' })
+    }
+    setShowAddProgram(true)
+  }
+
+  async function handleSaveProgram() {
+    if (!programForm.title || !programForm.start_time || !programForm.end_time) {
+      setError('Titre, début et fin sont requis'); return
+    }
+    setSavingProgram(true); setError(null)
+    try {
+      const body = {
+        ...programForm,
+        start_time: new Date(programForm.start_time).toISOString(),
+        end_time: new Date(programForm.end_time).toISOString(),
+      }
+      const res = editingProgramId
+        ? await fetch(`/api/admin/events/${eventId}/programs`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ programId: editingProgramId, ...body }),
+          })
+        : await fetch(`/api/admin/events/${eventId}/programs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setShowAddProgram(false)
+      await fetchPrograms()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur')
+    } finally { setSavingProgram(false) }
+  }
+
+  async function handleDeleteProgram(programId: string) {
+    if (!confirm('Supprimer cette session du programme ?')) return
+    try {
+      const res = await fetch(
+        `/api/admin/events/${eventId}/programs?program_id=${programId}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) throw new Error('Erreur')
+      setPrograms(prev => prev.filter(p => p.id !== programId))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur')
     }
   }
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.gray500, fontSize: 15 }}>
-        Chargement...
-      </div>
-    )
-  }
+  // ── Derived ─────────────────────────────────────────────────────────────────
+  const statusBadge = useMemo(() => {
+    if (!salon) return null
+    if (salon.is_active) return { label: 'En direct', bg: '#dcfce7', color: C.green }
+    if (new Date(salon.event_date) > new Date()) return { label: 'À venir', bg: C.tomateLight, color: C.tomate }
+    return { label: 'Archivé', bg: C.gray100, color: C.gray500 }
+  }, [salon])
 
+  if (loading) {
+    return <div style={loadingBox}>Chargement...</div>
+  }
   if (!salon) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 12 }}>
+      <div style={{ ...loadingBox, flexDirection: 'column', gap: 12 }}>
         <p style={{ color: C.tomate, fontWeight: 700 }}>Salon non trouvé</p>
         <button onClick={() => router.push('/admin/salons')} style={btnSecondary}>Retour aux salons</button>
       </div>
     )
   }
 
-  const statusBadge = salon.is_active
-    ? { label: 'En direct', bg: '#dcfce7', color: C.green }
-    : new Date(salon.event_date) > new Date()
-      ? { label: 'À venir', bg: C.tomateLight, color: C.tomate }
-      : { label: 'Archivé', bg: C.gray100, color: C.gray500 }
-
   return (
     <div style={{ background: C.blanc, minHeight: '100vh' }}>
-      {/* Top stripe */}
       <div style={{ height: 4, background: `linear-gradient(90deg, ${C.tomate} 0% 33%, ${C.piscine} 33% 66%, #FCD716 66% 100%)` }} />
 
-      <div style={{ padding: '32px 40px', maxWidth: 1000, margin: '0 auto' }}>
-        {/* Back */}
-        <button onClick={() => router.push('/admin/salons')} style={{ ...btnSecondary, marginBottom: 24, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ padding: '32px 40px', maxWidth: 1100, margin: '0 auto' }}>
+        <button onClick={() => router.push('/admin/salons')} style={{ ...btnSecondary, marginBottom: 24 }}>
           ← Retour aux salons
         </button>
 
@@ -191,63 +313,47 @@ export default function SalonDetailPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-              <h1 style={{ margin: 0, fontSize: 36, fontWeight: 900, color: C.noir, textTransform: 'uppercase' }}>
-                {salon.name}
-              </h1>
-              <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: statusBadge.bg, color: statusBadge.color }}>
-                {statusBadge.label}
-              </span>
+              <h1 style={{ margin: 0, fontSize: 36, fontWeight: 900, color: C.noir, textTransform: 'uppercase' }}>{salon.name}</h1>
+              {statusBadge && (
+                <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: statusBadge.bg, color: statusBadge.color }}>
+                  {statusBadge.label}
+                </span>
+              )}
             </div>
             <p style={{ margin: 0, fontSize: 15, color: C.gray500 }}>
               {salon.city} · {new Date(salon.event_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </div>
           {!editMode && (
-            <button onClick={() => setEditMode(true)} style={btnPrimary}>
-              Éditer
-            </button>
+            <button onClick={() => setEditMode(true)} style={btnPrimary}>Éditer</button>
           )}
         </div>
 
         {error && (
-          <div style={{ padding: '12px 16px', background: C.tomateLight, border: `1px solid ${C.tomate}`, borderRadius: 6, color: C.tomate, fontSize: 13, marginBottom: 24, fontWeight: 500 }}>
+          <div style={errorBox}>
             {error}
             <button onClick={() => setError(null)} style={{ float: 'right', background: 'none', border: 'none', color: C.tomate, cursor: 'pointer', fontWeight: 700 }}>✕</button>
           </div>
         )}
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, marginBottom: 24, borderBottom: `2px solid ${C.gray200}` }}>
-          {(['details', 'exhibitors', 'students', 'qrcodes'] as const).map(t => {
-            const labels = { details: 'Détails', exhibitors: `Exposants (${exhibitors.length})`, students: `Étudiants (${students.length})`, qrcodes: 'Codes QR' }
-            return (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                style={{
-                  padding: '12px 20px',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: tab === t ? `2px solid ${C.tomate}` : '2px solid transparent',
-                  marginBottom: -2,
-                  color: tab === t ? C.tomate : C.gray500,
-                  fontWeight: tab === t ? 700 : 500,
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  transition: 'color 0.15s',
-                }}
-              >
-                {labels[t]}
-              </button>
-            )
-          })}
+        <div style={{ display: 'flex', gap: 0, marginBottom: 24, borderBottom: `2px solid ${C.gray200}`, overflowX: 'auto' }}>
+          {([
+            ['details', 'Détails'],
+            ['exhibitors', `Exposants (${exhibitors.length})`],
+            ['students', `Étudiants (${students.length})`],
+            ['programme', `Programme (${programs.length})`],
+            ['qrcodes', 'Codes QR'],
+          ] as const).map(([t, label]) => (
+            <button key={t} onClick={() => setTab(t)} style={tabStyle(tab === t)}>
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* ── Details Tab ── */}
         {tab === 'details' && (
-          <div style={{ background: '#fff', borderRadius: 8, padding: 28, border: `1px solid ${C.gray200}` }}>
+          <div style={card}>
             {editMode ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <Field label="Nom du salon">
@@ -261,12 +367,7 @@ export default function SalonDetailPage() {
                 </Field>
                 <Field label="Statut">
                   <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={formData.is_active}
-                      onChange={e => setFormData(p => ({ ...p, is_active: e.target.checked }))}
-                      style={{ width: 16, height: 16, accentColor: C.tomate }}
-                    />
+                    <input type="checkbox" checked={formData.is_active} onChange={e => setFormData(p => ({ ...p, is_active: e.target.checked }))} style={{ width: 16, height: 16, accentColor: C.tomate }} />
                     <span style={{ fontSize: 14, color: C.noir }}>Salon en direct (actif)</span>
                   </label>
                 </Field>
@@ -290,16 +391,65 @@ export default function SalonDetailPage() {
 
         {/* ── Exhibitors Tab ── */}
         {tab === 'exhibitors' && (
-          <div style={{ background: '#fff', borderRadius: 8, padding: 28, border: `1px solid ${C.gray200}` }}>
-            <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700, color: C.noir }}>
-              Exposants inscrits ({exhibitors.length})
-            </h3>
+          <div style={card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.noir }}>
+                Exposants inscrits ({exhibitors.length})
+              </h3>
+              <button onClick={() => { setShowAddExhibitor(true); searchSchools('') }} style={btnPrimary}>
+                + Ajouter un exposant
+              </button>
+            </div>
+
+            {showAddExhibitor && (
+              <div style={{ background: C.blanc, border: `1.5px solid ${C.gray200}`, borderRadius: 6, padding: 16, marginBottom: 16 }}>
+                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: C.noir }}>
+                  Rechercher un établissement
+                </p>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Tapez un nom d'école..."
+                  value={schoolQuery}
+                  onChange={e => setSchoolQuery(e.target.value)}
+                  style={inputStyle}
+                />
+                <div style={{ marginTop: 12, maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {schoolResults.length === 0 ? (
+                    <p style={{ color: C.gray500, fontSize: 12, padding: '12px 0' }}>Aucun résultat</p>
+                  ) : schoolResults.map(s => {
+                    const already = exhibitors.some(e => e.school_id === s.id)
+                    return (
+                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#fff', border: `1px solid ${C.gray200}`, borderRadius: 4 }}>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: C.noir }}>{s.name}</p>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: C.gray500 }}>{s.type} · {s.city}</p>
+                        </div>
+                        <button
+                          disabled={already || addingExhibitor}
+                          onClick={() => handleAddExhibitor(s)}
+                          style={{ ...btnPrimary, padding: '6px 12px', fontSize: 11, opacity: already ? 0.4 : 1, cursor: already ? 'not-allowed' : 'pointer' }}
+                        >
+                          {already ? 'Inscrit' : 'Ajouter'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{ marginTop: 12, textAlign: 'right' }}>
+                  <button onClick={() => { setShowAddExhibitor(false); setSchoolQuery('') }} style={btnSecondary}>Fermer</button>
+                </div>
+              </div>
+            )}
+
             {exhibitors.length === 0 ? (
-              <p style={{ color: C.gray500, textAlign: 'center', padding: '40px 0', fontSize: 14 }}>Aucun exposant inscrit pour ce salon</p>
+              <p style={{ color: C.gray500, textAlign: 'center', padding: '40px 0', fontSize: 14 }}>
+                Aucun exposant inscrit pour ce salon
+              </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {exhibitors.map(ex => (
-                  <div key={ex.id} style={{ padding: '14px 16px', background: C.gray100, borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={ex.id} style={listItem}>
                     <div>
                       <p style={{ margin: 0, fontWeight: 600, color: C.noir, fontSize: 14 }}>{ex.school_name}</p>
                       <p style={{ margin: '2px 0 0', fontSize: 12, color: C.gray500 }}>
@@ -322,36 +472,32 @@ export default function SalonDetailPage() {
 
         {/* ── Students Tab ── */}
         {tab === 'students' && (
-          <div style={{ background: '#fff', borderRadius: 8, padding: 28, border: `1px solid ${C.gray200}` }}>
+          <div style={card}>
             <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700, color: C.noir }}>
               Étudiants inscrits ({students.length})
             </h3>
             {students.length === 0 ? (
-              <p style={{ color: C.gray500, textAlign: 'center', padding: '40px 0', fontSize: 14 }}>Aucun étudiant inscrit pour ce salon</p>
+              <p style={{ color: C.gray500, textAlign: 'center', padding: '40px 0', fontSize: 14 }}>Aucun étudiant inscrit</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: C.gray100 }}>
-                      <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, color: C.gray700, textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.05em' }}>Nom</th>
-                      <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 700, color: C.gray700, textTransform: 'uppercase', fontSize: 11 }}>Entrée</th>
-                      <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 700, color: C.gray700, textTransform: 'uppercase', fontSize: 11 }}>Sortie</th>
-                      <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: C.gray700, textTransform: 'uppercase', fontSize: 11 }}>Inscription</th>
+                      <th style={th}>Nom</th>
+                      <th style={{ ...th, textAlign: 'center' }}>Entrée</th>
+                      <th style={{ ...th, textAlign: 'center' }}>Sortie</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Inscription</th>
                     </tr>
                   </thead>
                   <tbody>
                     {students.map((s, i) => (
                       <tr key={s.id} style={{ borderBottom: `1px solid ${C.gray200}`, background: i % 2 === 0 ? '#fff' : C.gray100 }}>
                         <td style={{ padding: '12px 14px', fontWeight: 500 }}>{s.user_name}</td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          <span style={{ color: s.scanned_entry ? C.green : C.gray500, fontWeight: 700, fontSize: 16 }}>
-                            {s.scanned_entry ? '✓' : '—'}
-                          </span>
+                        <td style={{ padding: '12px 14px', textAlign: 'center', color: s.scanned_entry ? C.green : C.gray500, fontWeight: 700, fontSize: 16 }}>
+                          {s.scanned_entry ? '✓' : '—'}
                         </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          <span style={{ color: s.scanned_exit ? C.green : C.gray500, fontWeight: 700, fontSize: 16 }}>
-                            {s.scanned_exit ? '✓' : '—'}
-                          </span>
+                        <td style={{ padding: '12px 14px', textAlign: 'center', color: s.scanned_exit ? C.green : C.gray500, fontWeight: 700, fontSize: 16 }}>
+                          {s.scanned_exit ? '✓' : '—'}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: 12, color: C.gray500 }}>
                           {new Date(s.registered_at).toLocaleDateString('fr-FR')}
@@ -365,60 +511,95 @@ export default function SalonDetailPage() {
           </div>
         )}
 
-        {/* ── QR Codes Tab ── */}
-        {tab === 'qrcodes' && (
-          <div style={{ background: '#fff', borderRadius: 8, padding: 28, border: `1px solid ${C.gray200}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-              <div>
-                <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: C.noir }}>Codes QR Entrée / Sortie</h3>
-                <p style={{ margin: 0, color: C.gray500, fontSize: 13 }}>
-                  {students.length === 0
-                    ? 'Aucun étudiant inscrit — les codes QR seront disponibles après inscription.'
-                    : `${students.length} étudiant${students.length > 1 ? 's' : ''} — cliquez sur Générer pour créer les codes QR.`}
-                </p>
-              </div>
-              {students.length > 0 && (
-                <button
-                  onClick={handleGenerateQRCodes}
-                  disabled={generatingQR}
-                  style={{ ...btnPrimary, opacity: generatingQR ? 0.6 : 1 }}
-                >
-                  {generatingQR ? 'Génération...' : 'Générer les codes QR'}
-                </button>
+        {/* ── Programme Tab ── */}
+        {tab === 'programme' && (
+          <div style={card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.noir }}>
+                Programme du salon ({programs.length} session{programs.length > 1 ? 's' : ''})
+              </h3>
+              {!showAddProgram && (
+                <button onClick={() => openProgramForm()} style={btnPrimary}>+ Ajouter une session</button>
               )}
             </div>
 
-            {students.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-                {students.map(s => (
-                  <div key={s.id} style={{ padding: 16, border: `1px solid ${C.gray200}`, borderRadius: 8, background: C.blanc }}>
-                    <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: C.noir }}>{s.user_name}</p>
+            {showAddProgram && (
+              <div style={{ background: C.blanc, border: `1.5px solid ${C.gray200}`, borderRadius: 6, padding: 16, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.noir }}>
+                  {editingProgramId ? 'Modifier la session' : 'Nouvelle session'}
+                </p>
+                <Field label="Titre"><input value={programForm.title} onChange={e => setProgramForm(p => ({ ...p, title: e.target.value }))} style={inputStyle} /></Field>
+                <Field label="Description (optionnel)"><textarea value={programForm.description} onChange={e => setProgramForm(p => ({ ...p, description: e.target.value }))} style={{ ...inputStyle, minHeight: 60 }} /></Field>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <Field label="Intervenant"><input value={programForm.speaker} onChange={e => setProgramForm(p => ({ ...p, speaker: e.target.value }))} style={inputStyle} /></Field>
+                  <Field label="Lieu / Salle"><input value={programForm.location} onChange={e => setProgramForm(p => ({ ...p, location: e.target.value }))} style={inputStyle} /></Field>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <Field label="Début"><input type="datetime-local" value={programForm.start_time} onChange={e => setProgramForm(p => ({ ...p, start_time: e.target.value }))} style={inputStyle} /></Field>
+                  <Field label="Fin"><input type="datetime-local" value={programForm.end_time} onChange={e => setProgramForm(p => ({ ...p, end_time: e.target.value }))} style={inputStyle} /></Field>
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={() => setShowAddProgram(false)} style={btnSecondary}>Annuler</button>
+                  <button onClick={handleSaveProgram} disabled={savingProgram} style={{ ...btnPrimary, opacity: savingProgram ? 0.6 : 1 }}>
+                    {savingProgram ? 'Enregistrement...' : editingProgramId ? 'Mettre à jour' : 'Ajouter'}
+                  </button>
+                </div>
+              </div>
+            )}
 
-                    {s.entry_qr ? (
-                      <div style={{ marginBottom: 12 }}>
-                        <p style={{ margin: '0 0 6px', fontSize: 10, color: C.gray500, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Entrée</p>
-                        <img src={s.entry_qr} alt={`QR Entrée — ${s.user_name}`} style={{ width: '100%', display: 'block', borderRadius: 4, border: `1px solid ${C.gray200}` }} />
+            {programs.length === 0 && !showAddProgram ? (
+              <p style={{ color: C.gray500, textAlign: 'center', padding: '40px 0', fontSize: 14 }}>
+                Aucune session programmée. Ajoutez la première !
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {programs.map(p => (
+                  <div key={p.id} style={{ ...listItem, alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontWeight: 700, color: C.noir, fontSize: 14 }}>{p.title}</p>
+                      {p.description && (
+                        <p style={{ margin: '4px 0 0', fontSize: 12, color: C.gray700 }}>{p.description}</p>
+                      )}
+                      <div style={{ marginTop: 8, display: 'flex', gap: 14, fontSize: 11, color: C.gray500, flexWrap: 'wrap' }}>
+                        <span>🕐 {new Date(p.start_time).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} → {new Date(p.end_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        {p.speaker && <span>👤 {p.speaker}</span>}
+                        {p.location && <span>📍 {p.location}</span>}
                       </div>
-                    ) : (
-                      <div style={{ marginBottom: 12, padding: 16, background: C.gray100, borderRadius: 4, textAlign: 'center' }}>
-                        <p style={{ margin: 0, fontSize: 11, color: C.gray500 }}>Entrée — non généré</p>
-                      </div>
-                    )}
-
-                    {s.exit_qr ? (
-                      <div>
-                        <p style={{ margin: '0 0 6px', fontSize: 10, color: C.gray500, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sortie</p>
-                        <img src={s.exit_qr} alt={`QR Sortie — ${s.user_name}`} style={{ width: '100%', display: 'block', borderRadius: 4, border: `1px solid ${C.gray200}` }} />
-                      </div>
-                    ) : (
-                      <div style={{ padding: 16, background: C.gray100, borderRadius: 4, textAlign: 'center' }}>
-                        <p style={{ margin: 0, fontSize: 11, color: C.gray500 }}>Sortie — non généré</p>
-                      </div>
-                    )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => openProgramForm(p)} style={{ padding: '6px 10px', background: 'transparent', border: `1px solid ${C.gray200}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                        Éditer
+                      </button>
+                      <button onClick={() => handleDeleteProgram(p.id)} style={{ padding: '6px 10px', background: 'transparent', color: C.tomate, border: `1px solid ${C.tomate}`, borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                        Supprimer
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── QR Codes Tab ── */}
+        {tab === 'qrcodes' && (
+          <div style={card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+              <div>
+                <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: C.noir }}>Codes QR du salon</h3>
+                <p style={{ margin: 0, color: C.gray500, fontSize: 13 }}>
+                  Génère un code QR Entrée et un code QR Sortie pour ce salon — utilisable par tous les étudiants connectés, sans inscription préalable.
+                </p>
+              </div>
+              <button onClick={handleGenerateEventQR} disabled={generatingQR} style={{ ...btnPrimary, opacity: generatingQR ? 0.6 : 1 }}>
+                {generatingQR ? 'Génération...' : (salon.entry_qr ? 'Régénérer' : 'Générer les codes QR')}
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
+              <QRDisplay label="Entrée" src={salon.entry_qr} accent={C.green} />
+              <QRDisplay label="Sortie" src={salon.exit_qr} accent={C.tomate} />
+            </div>
           </div>
         )}
       </div>
@@ -426,48 +607,56 @@ export default function SalonDetailPage() {
   )
 }
 
-// ── Shared styles ──────────────────────────────────────────────────────────────
+// ── Sub-components & styles ────────────────────────────────────────────────────
 
-const btnPrimary: React.CSSProperties = {
-  padding: '10px 20px',
-  background: '#EC1F27',
-  color: '#fff',
+function QRDisplay({ label, src, accent }: { label: string; src: string | null; accent: string }) {
+  return (
+    <div style={{ padding: 20, border: `1px solid #E8E8E8`, borderRadius: 8, background: '#fff', textAlign: 'center' }}>
+      <p style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: '0.08em' }}>QR {label}</p>
+      {src ? (
+        <>
+          <img src={src} alt={`QR ${label}`} style={{ width: '100%', maxWidth: 220, display: 'block', margin: '0 auto', borderRadius: 4 }} />
+          <a href={src} download={`qr-${label.toLowerCase()}.png`} style={{ display: 'inline-block', marginTop: 12, fontSize: 11, color: '#3D3D3D', textDecoration: 'underline' }}>
+            Télécharger PNG
+          </a>
+        </>
+      ) : (
+        <div style={{ padding: 32, background: '#F4F4F4', borderRadius: 4 }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#6B6B6B' }}>Pas encore généré</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const btnPrimary: React.CSSProperties = { padding: '10px 20px', background: '#EC1F27', color: '#fff', border: 'none', borderRadius: 4, fontWeight: 700, fontSize: 13, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' }
+const btnSecondary: React.CSSProperties = { padding: '10px 20px', background: 'transparent', color: '#3D3D3D', border: '1.5px solid #E8E8E8', borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: 'pointer' }
+const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', border: '1.5px solid #E8E8E8', borderRadius: 4, fontSize: 14, boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }
+const card: React.CSSProperties = { background: '#fff', borderRadius: 8, padding: 28, border: `1px solid #E8E8E8` }
+const loadingBox: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: '#6B6B6B', fontSize: 15 }
+const errorBox: React.CSSProperties = { padding: '12px 16px', background: '#FFF0F1', border: `1px solid #EC1F27`, borderRadius: 6, color: '#EC1F27', fontSize: 13, marginBottom: 24, fontWeight: 500 }
+const listItem: React.CSSProperties = { padding: '14px 16px', background: '#F4F4F4', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }
+const th: React.CSSProperties = { padding: '12px 14px', textAlign: 'left', fontWeight: 700, color: '#3D3D3D', textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.05em' }
+
+const tabStyle = (active: boolean): React.CSSProperties => ({
+  padding: '12px 20px',
+  background: 'none',
   border: 'none',
-  borderRadius: 4,
-  fontWeight: 700,
-  fontSize: 13,
+  borderBottom: active ? `2px solid #EC1F27` : '2px solid transparent',
+  marginBottom: -2,
+  color: active ? '#EC1F27' : '#6B6B6B',
+  fontWeight: active ? 700 : 500,
   cursor: 'pointer',
+  fontSize: 13,
   textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-}
-
-const btnSecondary: React.CSSProperties = {
-  padding: '10px 20px',
-  background: 'transparent',
-  color: '#3D3D3D',
-  border: '1.5px solid #E8E8E8',
-  borderRadius: 4,
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: 'pointer',
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  border: '1.5px solid #E8E8E8',
-  borderRadius: 4,
-  fontSize: 14,
-  boxSizing: 'border-box',
-  outline: 'none',
-}
+  letterSpacing: '0.05em',
+  whiteSpace: 'nowrap',
+})
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#191829', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        {label}
-      </label>
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#191829', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</label>
       {children}
     </div>
   )

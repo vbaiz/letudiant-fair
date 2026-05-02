@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const eventId = params.id
+    const { id: eventId } = await params
     const { schoolId } = await request.json()
     if (!schoolId) return NextResponse.json({ error: 'School ID required' }, { status: 400 })
 

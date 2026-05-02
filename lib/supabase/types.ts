@@ -68,7 +68,22 @@ export type EventRow = {
   description: string | null
   is_virtual: boolean
   is_active: boolean
+  entry_qr: string | null
+  exit_qr: string | null
   created_at: string
+}
+
+export type EventProgramRow = {
+  id: string
+  event_id: string
+  title: string
+  description: string | null
+  speaker: string | null
+  location: string | null
+  start_time: string
+  end_time: string
+  created_at: string
+  updated_at: string
 }
 
 export type SchoolRow = {

@@ -2,12 +2,12 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/require-admin'
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
 
   try {
-    const eventId = params.id
+    const { id: eventId } = await params
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -38,7 +38,65 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+/** POST /api/admin/events/[id]/exhibitors — manually add an exhibitor (school). */
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
+
+  try {
+    const { id: eventId } = await params
+    const { school_id } = await request.json()
+    if (!school_id) return NextResponse.json({ error: 'school_id required' }, { status: 400 })
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    )
+
+    // Duplicate check
+    const { data: existing } = await supabase
+      .from('event_exhibitors')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('school_id', school_id)
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json({ error: 'Exposant déjà inscrit' }, { status: 409 })
+    }
+
+    const { data, error } = await supabase
+      .from('event_exhibitors')
+      .insert({ event_id: eventId, school_id })
+      .select('id, event_id, school_id, schools(name), registered_at')
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          id: data.id,
+          event_id: data.event_id,
+          school_id: data.school_id,
+          school_name: (data as any).schools?.name || 'Unknown',
+          registered_at: data.registered_at,
+        },
+      },
+      { status: 201 }
+    )
+  } catch (err: unknown) {
+    console.error('[POST /api/admin/events/[id]/exhibitors]', err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Server error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
 
