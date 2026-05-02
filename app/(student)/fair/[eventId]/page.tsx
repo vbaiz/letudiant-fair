@@ -1,12 +1,14 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
+import { getSupabase } from '@/lib/supabase/client';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import SectionLabel from '@/components/ui/SectionLabel';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface Stand {
   id: string;
@@ -21,11 +23,25 @@ interface Stand {
   type: string;
 }
 
-// Stands and sessions are configured per event by the organiser. Until the
-// event_stands / event_sessions tables are wired, we render empty states
-// rather than shipping fictitious schools.
+// Stands are still placeholders — programme is now fetched live from event_programs.
 const STANDS: Stand[] = [];
-const SESSIONS: { time: string; title: string; room: string; tag: 'red' | 'blue' | 'yellow' | 'gray' }[] = [];
+
+interface ProgramSession {
+  id: string;
+  title: string;
+  description: string | null;
+  speaker: string | null;
+  location: string | null;
+  start_time: string;
+  end_time: string;
+}
+
+interface EventData {
+  name: string;
+  event_date: string;
+  city: string | null;
+  venue: string | null;
+}
 
 export default function FairPage({
   params,
@@ -36,6 +52,44 @@ export default function FairPage({
   const { eventId } = use(params);
   const [activeTab, setActiveTab] = useState<'plan' | 'programme'>('plan');
   const [selectedStand, setSelectedStand] = useState<Stand | null>(null);
+  const [event, setEvent] = useState<EventData | null>(null);
+  const [eventLoading, setEventLoading] = useState(true);
+  const [sessions, setSessions] = useState<ProgramSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadEvent() {
+      const supabase = getSupabase();
+      const { data } = await supabase
+        .from('events')
+        .select('name, event_date, city, venue')
+        .eq('id', eventId)
+        .maybeSingle();
+      if (data) setEvent(data as EventData);
+      setEventLoading(false);
+    }
+    loadEvent();
+  }, [eventId]);
+
+  useEffect(() => {
+    async function loadProgram() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/programs`);
+        const json = await res.json();
+        if (json.success) setSessions(json.data || []);
+      } catch (err) {
+        console.error('Failed to load programme', err);
+      } finally {
+        setSessionsLoading(false);
+      }
+    }
+    loadProgram();
+  }, [eventId]);
+
+  const formattedDate = event?.event_date
+    ? new Date(event.event_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+  const venueLine = [event?.venue, event?.city].filter(Boolean).join(', ');
 
   return (
     <div className="page-with-nav" style={{ background: '#F4F4F4', minHeight: '100vh' }}>
@@ -47,12 +101,22 @@ export default function FairPage({
           </button>
           <div style={{ flex: 1 }}>
             <Tag variant="red" style={{ marginBottom: 6 }}>Salon</Tag>
-            <h1 className="le-h2" style={{ margin: '4px 0 2px', lineHeight: 1.2 }}>
-              Salon de l&apos;Orientation — Paris
-            </h1>
-            <p className="le-caption" style={{ margin: 0 }}>
-              📅 15 avril 2026 &nbsp;|&nbsp; 📍 Palais des Congrès, Paris
-            </p>
+            {eventLoading ? (
+              <>
+                <Skeleton style={{ height: 22, width: '70%', marginBottom: 6 }} />
+                <Skeleton style={{ height: 14, width: '55%' }} />
+              </>
+            ) : (
+              <>
+                <h1 className="le-h2" style={{ margin: '4px 0 2px', lineHeight: 1.2 }}>
+                  {event?.name ?? 'Salon'}
+                </h1>
+                <p className="le-caption" style={{ margin: 0 }}>
+                  {formattedDate && <>📅 {formattedDate}</>}
+                  {venueLine && <> &nbsp;|&nbsp; 📍 {venueLine}</>}
+                </p>
+              </>
+            )}
           </div>
         </div>
 
@@ -193,41 +257,59 @@ export default function FairPage({
           <div>
             <SectionLabel>Programme du jour</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-              {SESSIONS.length === 0 && (
+              {sessionsLoading ? (
+                <>
+                  <Skeleton style={{ height: 70 }} />
+                  <Skeleton style={{ height: 70 }} />
+                </>
+              ) : sessions.length === 0 ? (
                 <p style={{ color: '#6B6B6B', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
                   Le programme sera publié prochainement par l&apos;organisateur du salon.
                 </p>
-              )}
-              {SESSIONS.map((session, i) => (
-                <div
-                  key={i}
-                  className="le-card"
-                  style={{ padding: '16px 20px', display: 'flex', gap: 16, alignItems: 'flex-start' }}
-                >
-                  <div
-                    style={{
-                      background: '#F4F4F4',
-                      borderRadius: 8,
-                      padding: '8px 10px',
-                      textAlign: 'center',
-                      flexShrink: 0,
-                      minWidth: 56,
-                    }}
-                  >
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#EC1F27', display: 'block' }}>
-                      {session.time}
-                    </span>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 600, fontSize: 14, margin: '0 0 6px', color: '#1A1A1A' }}>
-                      {session.title}
-                    </p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Tag variant={session.tag}>{session.room}</Tag>
+              ) : (
+                sessions.map((session) => {
+                  const start = new Date(session.start_time);
+                  const timeLabel = start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                  return (
+                    <div
+                      key={session.id}
+                      className="le-card"
+                      style={{ padding: '16px 20px', display: 'flex', gap: 16, alignItems: 'flex-start' }}
+                    >
+                      <div
+                        style={{
+                          background: '#F4F4F4',
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          textAlign: 'center',
+                          flexShrink: 0,
+                          minWidth: 56,
+                        }}
+                      >
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#EC1F27', display: 'block' }}>
+                          {timeLabel}
+                        </span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 600, fontSize: 14, margin: '0 0 6px', color: '#1A1A1A' }}>
+                          {session.title}
+                        </p>
+                        {session.description && (
+                          <p style={{ fontSize: 12, color: '#6B6B6B', margin: '0 0 6px' }}>
+                            {session.description}
+                          </p>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {session.location && <Tag variant="blue">{session.location}</Tag>}
+                          {session.speaker && (
+                            <span className="le-caption" style={{ fontSize: 11 }}>👤 {session.speaker}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </div>
         )}

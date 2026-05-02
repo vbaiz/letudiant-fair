@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { getSupabase } from '@/lib/supabase/client'
 import type { EventRow } from '@/lib/supabase/types'
+import Icon from '@/components/ui/Icon'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
   CartesianGrid, Legend,
@@ -116,8 +117,8 @@ function PBar({ label, value, max, color, tip }: { label: string; value: number;
   )
 }
 
-const card: React.CSSProperties = { background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 26px', marginBottom: 16 }
-const ttS = { contentStyle: { background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 8, fontSize: 13 }, labelStyle: { fontWeight: 700, color: C.nuit } }
+<<<<<<< HEAD
+const ttS = { contentStyle: { background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 6, fontSize: 13 }, labelStyle: { fontWeight: 700, color: C.nuit } }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FLOW DIAGRAM
@@ -420,7 +421,8 @@ export default function AdminDashboard() {
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
       <div style={{ padding: '32px 44px', maxWidth: 1360, margin: '0 auto' }}>
 
-        {/* ── HEADER ── */}
+<<<<<<< HEAD
+        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap' as const, gap: 16 }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 6 }}>
@@ -440,7 +442,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {error && <div style={{ padding: '14px 20px', background: C.tomateLight, color: C.tomate, border: `1px solid ${C.tomate}`, borderRadius: 8, marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{error}</div>}
+<<<<<<< HEAD
+        {error && <div style={{ padding: '14px 20px', background: C.tomateLight, color: C.tomate, border: `1px solid ${C.tomate}`, borderRadius: 6, marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{error}</div>}
 
         {showFlow && !loading && <FlowDiagram scansCount={scans.length} studentsCount={students.length} avgScore={avgScore} />}
 
