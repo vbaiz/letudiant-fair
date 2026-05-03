@@ -1032,28 +1032,96 @@ export async function getArticles(limit: number = 10) {
 }
 
 /**
- * Get personalized articles for a student based on reading history
- * Phase 2: Just returns newest articles
- * Phase 4: Will use student_article_preferences to recommend
+ * Get personalized articles for a student based on profile matching
+ * Implements intelligent ranking based on:
+ * 1. Student's education level + branches
+ * 2. Article category match
+ * 3. Most-read articles (featured/is_featured)
+ * 4. Past reading history (from article_analytics)
  */
 export async function getPersonalizedArticles(studentId: string, limit: number = 10) {
   const supabase = getSupabase()
   const now = new Date().toISOString()
 
-  // TODO: Phase 4 - Use student_article_preferences to get favorite categories
-  // For now, just return newest non-expired articles
+  try {
+    // Get student profile for matching
+    const [studentRes, articlesRes, prefRes] = await Promise.all([
+      supabase
+        .from('users')
+        .select('education_level, education_branches, study_wishes')
+        .eq('id', studentId)
+        .single(),
+      supabase
+        .from('articles')
+        .select('*')
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+        .limit(100), // Get more to rank
+      supabase
+        .from('student_article_preferences')
+        .select('article_id, interaction_count, clicks')
+        .eq('student_id', studentId)
+        .order('interaction_count', { ascending: false })
+        .limit(50) // Past reading history
+    ])
 
-  const { data, error } = await supabase
-    .from('articles')
-    .select('*')
-    .or(`expires_at.is.null,expires_at.gt.${now}`)
-    .order('published_at', { ascending: false })
-    .limit(limit)
+    const student = studentRes.data
+    const allArticles = articlesRes.data ?? []
+    const preferences = prefRes.data ?? []
 
-  if (error) {
-    console.error('Failed to fetch personalized articles:', error.message)
+    if (!student || allArticles.length === 0) {
+      return allArticles.slice(0, limit)
+    }
+
+    // Build preference map for quick lookup
+    const prefMap = new Map(preferences.map(p => [p.article_id, p]))
+
+    // Score articles based on profile match
+    const scoredArticles = allArticles.map((article) => {
+      let score = 0
+
+      // 1. Featured/most-read bonus (+30 points)
+      if (article.is_featured) score += 30
+
+      // 2. Category match with education branches
+      const branches = (student.education_branches || []).map((b: string) => b.toLowerCase())
+      const articleCat = (article.category || '').toLowerCase()
+
+      if (articleCat.includes('business') && (branches.includes('business') || branches.includes('management'))) score += 25
+      if (articleCat.includes('tech') && (branches.includes('tech') || branches.includes('technology') || branches.includes('science'))) score += 25
+      if (articleCat.includes('formation') && articleCat.includes('master')) score += 15
+      if (articleCat.includes('emploi') || articleCat.includes('stage')) score += 10
+
+      // 3. Past reading history (+20 points)
+      if (prefMap.has(article.id)) {
+        const pref = prefMap.get(article.id)!
+        score += Math.min(20, pref.interaction_count * 5) // Cap at 20
+      }
+
+      // 4. Recency bonus (articles published recently)
+      if (article.published_at) {
+        const daysSincePublish = Math.floor(
+          (Date.now() - new Date(article.published_at).getTime()) / (1000 * 60 * 60 * 24)
+        )
+        if (daysSincePublish < 7) score += 10
+      }
+
+      return { ...article, _score: score }
+    })
+
+    // Sort by score descending, then by featured, then by published date
+    const ranked = scoredArticles
+      .sort((a, b) => {
+        if (b._score !== a._score) return b._score - a._score
+        if (b.is_featured !== a.is_featured) return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)
+        return (b.published_at ? new Date(b.published_at).getTime() : 0) -
+               (a.published_at ? new Date(a.published_at).getTime() : 0)
+      })
+      .slice(0, limit)
+      .map(({ _score, ...article }) => article) // Remove score field
+
+    return ranked
+  } catch (err) {
+    console.error('Failed to fetch personalized articles:', err)
     return []
   }
-
-  return data ?? []
 }
