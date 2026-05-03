@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { getSupabase } from '@/lib/supabase/client'
 import type { EventRow } from '@/lib/supabase/types'
-import Icon from '@/components/ui/Icon'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
   CartesianGrid, Legend,
@@ -27,9 +26,9 @@ const C = {
 } as const
 
 const TIER: Record<string, { color: string; bg: string; text: string; border: string; label: string; single: string; gradient: string }> = {
-  high: { color: '#059669', bg: '#D1FAE5', text: '#065F46', border: '#6EE7B7', label: 'Décideurs', single: 'Décideur', gradient: 'linear-gradient(135deg, #EC1F27 0%, #C41520 100%)' },
-  medium: { color: '#2563EB', bg: '#DBEAFE', text: '#1E40AF', border: '#93C5FD', label: 'Comparateurs', single: 'Comparateur', gradient: 'linear-gradient(135deg, #0066CC 0%, #004A99 100%)' },
-  low: { color: '#F59E0B', bg: '#FEF3C7', text: '#92400E', border: '#FCD34D', label: 'Explorateurs', single: 'Explorateur', gradient: 'linear-gradient(135deg, #FCD716 0%, #E6A800 100%)' },
+  high: { color: '#059669', bg: '#D1FAE5', text: '#065F46', border: '#6EE7B7', label: 'Décideurs', single: 'Décideur', gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)' },
+  medium: { color: '#2563EB', bg: '#DBEAFE', text: '#1E40AF', border: '#93C5FD', label: 'Comparateurs', single: 'Comparateur', gradient: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)' },
+  low: { color: '#F59E0B', bg: '#FEF3C7', text: '#92400E', border: '#FCD34D', label: 'Explorateurs', single: 'Explorateur', gradient: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' },
 }
 
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(n)
@@ -41,7 +40,7 @@ type Tab = 'preparation' | 'jourj' | 'bilan' | 'clusters' | 'strategie'
 // ═══════════════════════════════════════════════════════════════════════════
 // RAW TYPES
 // ═══════════════════════════════════════════════════════════════════════════
-interface RUser { id: string; email: string; name: string | null; role: string; education_level: string | null; bac_series: string | null; education_branches: string[] | null; wishlist: string[] | null; intent_score: number; intent_level: string; orientation_score: number; last_dwell_minutes: number | null; is_minor: boolean; is_booth_registered: boolean; optin_letudiant: boolean; created_at: string }
+interface RUser { id: string; email: string; name: string | null; role: string; education_level: string | null; bac_series: string | null; education_branches: string[] | null; wishlist: string[] | null; intent_score: number; intent_level: string; orientation_score: number; last_dwell_minutes: number | null; is_minor: boolean; is_booth_registered: boolean; optin_letudiant: boolean; postal_code: string | null; created_at: string }
 interface RScan { id: string; user_id: string; event_id: string; stand_id: string | null; channel: string; created_at: string }
 interface RAppt { id: string; student_id: string; school_id: string; event_id: string; status: string }
 interface RMatch { id: string; student_id: string; school_id: string; student_swipe: string | null }
@@ -151,8 +150,7 @@ function PBar({ label, value, max, color, tip }: { label: string; value: number;
   )
 }
 
-const card: React.CSSProperties = { background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 26px', marginBottom: 16 }
-const ttS = { contentStyle: { background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 8, fontSize: 13 }, labelStyle: { fontWeight: 700, color: C.nuit } }
+const ttS = { contentStyle: { background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 6, fontSize: 13 }, labelStyle: { fontWeight: 700, color: C.nuit } }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FLOW DIAGRAM
@@ -161,15 +159,15 @@ function FlowDiagram({ scansCount, studentsCount, avgScore }: { scansCount: numb
   const steps = [
     { icon: '①', title: 'Inscription', val: String(studentsCount), sub: 'étudiants', color: C.spirit, bg: C.spiritLight },
     { icon: '②', title: 'Scan QR', val: String(scansCount), sub: 'scans', color: C.menthe, bg: C.mentheLight },
-    { icon: '③', title: 'Scoring auto', val: 'Trigger', sub: 'PostgreSQL', color: C.pourpre, bg: C.pourpreLight },
+    { icon: '③', title: 'Scoring auto', val: 'Temps réel', sub: 'automatique', color: C.pourpre, bg: C.pourpreLight },
     { icon: '④', title: 'Dashboard', val: String(avgScore), sub: 'score moy.', color: C.tomate, bg: C.tomateLight },
   ]
   return (
     <div style={{ ...card, background: C.nuit, border: 'none', padding: '28px 30px', borderRadius: 16, boxShadow: heroShadow }}>
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>Comment ça marche</div>
-      <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 6 }}>Chaque interaction étudiant alimente le scoring en temps réel</div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 6 }}>De l&apos;inscription au lead qualifié — tout est automatique</div>
       <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 20, lineHeight: 1.6 }}>
-        L&apos;étudiant s&apos;inscrit → scanne un QR au salon → visite des stands → un trigger PostgreSQL recalcule son score à chaque scan → le dashboard se met à jour en direct.
+        Chaque interaction au salon se transforme automatiquement en données actionnables pour l&apos;orientation.
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         {steps.map((st, i) => (
@@ -235,7 +233,7 @@ export default function AdminDashboard() {
     try {
       const sb = getSupabase()
       const [uR, scR, apR, maR, stR, schR, prR, allScR, allApR] = await Promise.all([
-        sb.from('users').select('id,email,name,role,education_level,bac_series,education_branches,wishlist,intent_score,intent_level,orientation_score,last_dwell_minutes,is_minor,is_booth_registered,optin_letudiant,created_at'),
+        sb.from('users').select('id,email,name,role,education_level,bac_series,education_branches,wishlist,intent_score,intent_level,orientation_score,last_dwell_minutes,is_minor,is_booth_registered,optin_letudiant,postal_code,created_at'),
         sb.from('scans').select('id,user_id,event_id,stand_id,channel,created_at').eq('event_id', eventId),
         sb.from('appointments').select('id,student_id,school_id,event_id,status').eq('event_id', eventId),
         sb.from('matches').select('id,student_id,school_id,student_swipe'),
@@ -413,6 +411,11 @@ export default function AdminDashboard() {
     const hD = clusters.find(c => c.level === 'high')?.avgDwell ?? 0; const lD = clusters.find(c => c.level === 'low')?.avgDwell ?? 0
     if (hD > 0 && lD > 0) r.push({ text: `Les décideurs passent ${Math.round(hD / Math.max(lD, 1))}× plus de temps`, data: `${fmtMin(hD)} en moy. vs ${fmtMin(lD)} pour les explorateurs` })
     if (swipeT > 0) r.push({ text: `Taux d'intérêt (swipe droit) : ${pct(swipeR, swipeT)}%`, data: `${swipeR} swipes droits sur ${swipeT} total` })
+    const completedProfiles = attendees.filter(u => u.education_level && u.bac_series && u.education_branches && u.education_branches.length > 0)
+    const incompleteProfiles = attendees.filter(u => !u.education_level || !u.bac_series || !u.education_branches || !u.education_branches.length)
+    const avgComplete = completedProfiles.length > 0 ? Math.round(completedProfiles.reduce((s, u) => s + u.intent_score, 0) / completedProfiles.length) : 0
+    const avgIncomplete = incompleteProfiles.length > 0 ? Math.round(incompleteProfiles.reduce((s, u) => s + u.intent_score, 0) / incompleteProfiles.length) : 0
+    if (avgComplete > 0 && avgIncomplete > 0) r.push({ text: `Les profils complétés ont un score ${Math.round(avgComplete / Math.max(avgIncomplete, 1))}× supérieur`, data: `Score moyen ${avgComplete} vs ${avgIncomplete} pour les profils incomplets` })
     return r
   }, [standPerf, branches, attendees, clusters, swipeR, swipeT])
 
@@ -458,7 +461,7 @@ export default function AdminDashboard() {
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}} .tab-btn{transition:all 0.2s ease;} .tab-btn:hover{transform:translateY(-1px);}`}</style>
       <div style={{ padding: '32px 44px', maxWidth: 1360, margin: '0 auto' }}>
 
-        {/* Header */}
+        {/* ── HEADER ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap' as const, gap: 16 }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 6 }}>
@@ -478,7 +481,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {error && <div style={{ padding: '14px 20px', background: C.tomateLight, color: C.tomate, border: `1px solid ${C.tomate}`, borderRadius: 6, marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{error}</div>}
+        {error && <div style={{ padding: '14px 20px', background: C.tomateLight, color: C.tomate, border: `1px solid ${C.tomate}`, borderRadius: 8, marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{error}</div>}
 
         {showFlow && !loading && <FlowDiagram scansCount={scans.length} studentsCount={students.length} avgScore={avgScore} />}
 
@@ -518,38 +521,7 @@ export default function AdminDashboard() {
             ))}
           </div>
         )}
-        {/* Stepper */}
-        {events.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 18 }}>
-            {([
-              { key: 'preparation' as Tab, label: '① Préparer' },
-              { key: 'jourj' as Tab, label: '② Piloter' },
-              { key: 'bilan' as Tab, label: '③ Analyser' },
-              { key: 'clusters' as Tab, label: '④ Comprendre' },
-              { key: 'strategie' as Tab, label: '⑤ Décider' },
-            ]).map((st, i) => {
-              const tabs: Tab[] = ['preparation', 'jourj', 'bilan', 'clusters', 'strategie']
-              const currentIdx = tabs.indexOf(tab)
-              const thisIdx = tabs.indexOf(st.key)
-              const isActive = tab === st.key
-              const isPast = thisIdx < currentIdx
-              return (
-                <div key={st.key} style={{ display: 'flex', alignItems: 'center' }}>
-                  <button onClick={() => setTab(st.key)} style={{
-                    padding: '6px 14px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    border: 'none', letterSpacing: '0.02em', transition: 'all 0.2s',
-                    background: isActive ? C.nuit : isPast ? '#D1FAE5' : C.g1,
-                    color: isActive ? '#fff' : isPast ? '#065F46' : C.g5,
-                  }}>
-                    {isPast ? '✓ ' : ''}{st.label}
-                  </button>
-                  {i < 4 && <div style={{ width: 20, height: 1, background: C.g3 }} />}
-                </div>
-              )
-            })}
-          </div>
-        )}
-  
+
         {loading && <div style={{ textAlign: 'center' as const, padding: 80, color: C.g5 }}>Chargement…</div>}
 
         {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -557,7 +529,7 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'preparation' && (
           <div>
-            <Insight color={C.piscine}>Avant le salon — qualifier les visiteurs en amont pour maximiser l&apos;engagement le Jour J →</Insight>
+            <Insight color={C.piscine}>Connaître ses visiteurs avant qu&apos;ils arrivent — chaque profil complété est un visiteur qualifié le jour J.</Insight>
 
             {/* Hero row — big red card + dark card */}
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 14 }}>
@@ -606,44 +578,13 @@ export default function AdminDashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
               <ColorCard label="Étudiants app" value={students.length} sub="inscrits via l'app" bg={C.piscineLight} textColor={C.piscineDark} tip="Étudiants inscrits dans l'app avec le rôle student. Source : table users WHERE role = student." />
               <ColorCard label="Filières moy." value={avgBranches} sub="par étudiant" bg={C.mentheLight} textColor={C.mentheDark} tip="Nombre moyen de filières d'intérêt cochées par étudiant. Plus c'est haut, plus le profil est complet." />
-              <ColorCard label="Score moyen" value={`${avgScore}/100`} bg={C.pourpreLight} textColor={C.pourpreDark} tip="Moyenne des scores d'engagement. Formule : 3×stands + 5×conf + 10×rdv + 2×swipes + 3×wishlist + 0.1×min + bonus profil. Calculé automatiquement par trigger PostgreSQL." />
+              <ColorCard label="Score moyen" value={`${avgScore}/100`} bg={C.pourpreLight} textColor={C.pourpreDark} tip="Moyenne des scores d'engagement. Formule : 5×stands + 8×conf + 15×rdv + temps + profil. Calculé automatiquement par trigger PostgreSQL." />
             </div>
 
-            {/* Provenance */}
-            <div style={{ ...card, marginBottom: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 12 }}>
-                <Tip text="Répartition géographique des visiteurs inscrits, basée sur le code postal déclaré.">Provenance des visiteurs</Tip>
-              </div>
-              {(() => {
-                const zones: Record<string, number> = { 'Paris intra-muros': 0, 'Petite couronne': 0, 'Grande couronne': 0, 'Hors Île-de-France': 0 }
-                attendees.forEach(u => {
-                  const cp = (u as Record<string, unknown>).postal_code as string | null
-                  if (!cp) return
-                  if (cp.startsWith('75')) zones['Paris intra-muros']++
-                  else if (['92', '93', '94'].some(p => cp.startsWith(p))) zones['Petite couronne']++
-                  else if (['77', '78', '91', '95'].some(p => cp.startsWith(p))) zones['Grande couronne']++
-                  else zones['Hors Île-de-France']++
-                })
-                const total = Object.values(zones).reduce((a, b) => a + b, 0)
-                const colors = [C.tomate, C.piscine, C.menthe, C.g5]
-                return total > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                    {Object.entries(zones).map(([zone, count], i) => (
-                      <div key={zone} style={{ textAlign: 'center' as const }}>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: colors[i] }}>{total > 0 ? Math.round(count / total * 100) : 0}%</div>
-                        <div style={{ fontSize: 11, color: C.g5, marginTop: 2 }}>{zone}</div>
-                        <div style={{ fontSize: 10, color: C.g3 }}>{count} étud.</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : <div style={{ fontSize: 13, color: C.g5 }}>Aucun code postal renseigné</div>
-              })()}
-            </div>
-
-            {/* Two columns — improved bottom half */}
+            {/* Two columns */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={{ ...card, border: `1px solid ${C.g2}` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 4 }}>
+              <div style={card}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 12 }}>
                   <Tip text="L'entonnoir montre la conversion : combien de pré-inscrits ont complété leur profil et sont venus au salon.">Entonnoir d&apos;inscription</Tip>
                 </div>
                 <SectionSub text="Combien d'étudiants passent chaque étape du processus d'inscription" />
@@ -686,7 +627,7 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'jourj' && (
           <div>
-            <Insight color={C.tomate}>← Les profils pré-qualifiés arrivent. Chaque scan enrichit leur score en temps réel →</Insight>
+            <Insight color={C.tomate}>Chaque scan QR = +5 à +15 points de score. Le comportement des visiteurs se transforme en données actionnables.</Insight>
 
             {/* Hero dark */}
             <div style={{ ...card, background: C.nuit, border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: 20, borderRadius: 16, boxShadow: heroShadow }}>
@@ -801,7 +742,7 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'bilan' && (
           <div>
-            <Insight color={C.menthe}>← Le salon est terminé. Voici ce que les données révèlent sur l&apos;engagement et l&apos;orientation →</Insight>
+            <Insight color={C.menthe}>Est-ce que le salon a aidé les étudiants ? On mesure la progression réelle — pas juste le passage à l&apos;entrée.</Insight>
 
             {/* Hero */}
             <div style={{ ...card, display: 'flex', gap: 24, alignItems: 'center', borderRadius: 16, boxShadow: heroShadow }}>
@@ -811,32 +752,13 @@ export default function AdminDashboard() {
               </div>
               <div style={{ display: 'flex', gap: 20, textAlign: 'center' as const }}>
                 {[{ v: intentH, l: 'Décideurs', c: TIER.high }, { v: intentM, l: 'Comparateurs', c: TIER.medium }, { v: intentL, l: 'Explorateurs', c: TIER.low }].map(x => (
-                  <div key={x.l}><div style={{ fontSize: 36, fontWeight: 800, color: x.c.color }}>{x.v}</div><div style={{ fontSize: 9, color: C.g5, textTransform: 'uppercase' as const, letterSpacing: '0.1em' }}>{x.l}</div></div>
+                  <Link key={x.l} href="/admin/segments" style={{ textDecoration: 'none' }}>
+                    <div style={{ cursor: 'pointer' }}>
+                      <div style={{ fontSize: 36, fontWeight: 800, color: x.c.color }}>{x.v}</div>
+                      <div style={{ fontSize: 9, color: C.g5, textTransform: 'uppercase' as const, letterSpacing: '0.1em' }}>{x.l}</div>
+                    </div>
+                  </Link>
                 ))}
-              </div>
-            </div>
-          {/* Impact ROI */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 16 }}>
-              <div style={{ background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 24px', borderTop: `3px solid ${C.menthe}` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: C.mentheDark, marginBottom: 8 }}>
-                  <Tip text="Proportion de pré-inscrits qui sont effectivement venus au salon et ont scanné leur QR d'entrée.">Conversion pré-inscription → visite</Tip>
-                </div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: C.mentheDark }}>{preregTotal > 0 ? Math.round(enteredIds.size / preregTotal * 100) : 0}%</div>
-                <div style={{ fontSize: 11, color: C.g5, fontStyle: 'italic' as const, marginTop: 6 }}>Sans tracking digital, aucune visibilité sur ce taux</div>
-              </div>
-              <div style={{ background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 24px', borderTop: `3px solid ${C.piscine}` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: C.piscineDark, marginBottom: 8 }}>
-                  <Tip text="Taux de visiteurs ayant pris au moins un rendez-vous avec une école — indicateur clé d'engagement.">Visiteurs avec RDV</Tip>
-                </div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: C.piscineDark }}>{rdvRate}%</div>
-                <div style={{ fontSize: 11, color: C.g5, fontStyle: 'italic' as const, marginTop: 6 }}>Les salons classiques n&apos;ont aucun moyen de mesurer ce taux</div>
-              </div>
-              <div style={{ background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 24px', borderTop: `3px solid ${C.spirit}` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: C.spiritDark, marginBottom: 8 }}>
-                  <Tip text="Nombre moyen de stands différents visités par étudiant — mesure la richesse du parcours d'orientation.">Stands visités en moy.</Tip>
-                </div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: C.spiritDark }}>{avgStands}</div>
-                <div style={{ fontSize: 11, color: C.g5, fontStyle: 'italic' as const, marginTop: 6 }}>Chaque stand visité est une interaction mesurée et scorée</div>
               </div>
             </div>
 
@@ -900,45 +822,15 @@ export default function AdminDashboard() {
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 4 }}>
                     <Tip text="Nombre de visiteurs par école, segmentés par profil comportemental. Les scores sont calculés automatiquement.">Performance par école</Tip>
                   </div>
-                  <div style={{ overflowX: 'auto' as const }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ borderBottom: `2px solid ${C.g2}` }}>
-                          {['École', 'Leads', 'Décideurs', 'Match %', 'Score'].map(h => (
-                            <th key={h} style={{ padding: '10px 12px', textAlign: h === 'École' ? 'left' as const : 'right' as const, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: C.g5 }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {leadsBySchool.slice(0, 10).map((l, i) => {
-                          const sm = matches.filter(m => m.school_id === l.id)
-                          const mt = sm.length
-                          const mr = sm.filter(m => m.student_swipe === 'right').length
-                          const mp = mt > 0 ? Math.round(mr / mt * 100) : 0
-                          return (
-                            <tr key={l.id} style={{ borderBottom: `1px solid ${C.g1}`, background: i < 3 ? C.g1 : '#fff' }}>
-                              <td style={{ padding: '11px 12px', fontWeight: i < 3 ? 700 : 400, color: C.nuit }}>{l.name}</td>
-                              <td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 800 }}>{l.total}</td>
-                              <td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 700, color: TIER.high.color }}>{l.high}</td>
-                              <td style={{ padding: '11px 12px', textAlign: 'right' as const }}>
-                                {mt > 0 ? <span style={{ fontWeight: 700, color: mp > 75 ? '#059669' : mp > 50 ? '#F59E0B' : '#EC1F27' }}>{mp}%</span> : '—'}
-                              </td>
-                              <td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 700 }}>{l.avg}/100</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <div style={{ overflowX: 'auto' as const }}><table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 }}><thead><tr style={{ borderBottom: `2px solid ${C.g2}` }}>{['École', 'Leads', 'Décideurs', 'Score'].map(h => <th key={h} style={{ padding: '10px 12px', textAlign: h === 'École' ? 'left' as const : 'right' as const, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: C.g5 }}>{h}</th>)}</tr></thead><tbody>{leadsBySchool.slice(0, 10).map((l, i) => <tr key={l.id} style={{ borderBottom: `1px solid ${C.g1}`, background: i < 3 ? C.g1 : '#fff' }}><td style={{ padding: '11px 12px', fontWeight: i < 3 ? 700 : 400, color: C.nuit }}>{l.name}</td><td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 800 }}>{l.total}</td><td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 700, color: TIER.high.color }}>{l.high}</td><td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 700 }}>{l.avg}/100</td></tr>)}</tbody></table></div>
                 </div>
-                <div style={{ ...card, background: C.nuit, border: 'none', color: '#fff' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Ce que ça signifie</div>
-                  <div style={{ lineHeight: 1.8, fontSize: 12 }}>
-                    {standPerf[0] && <div style={{ marginBottom: 10 }}><strong style={{ color: C.menthe }}>{standPerf[0].name}</strong> domine avec {standPerf[0].scans} scans — sa position dans le salon et sa notoriété attirent naturellement plus de visiteurs.</div>}
-                    {leadsBySchool.length > 3 && <div style={{ marginBottom: 10, color: 'rgba(255,255,255,0.7)' }}>Les écoles avec un score moyen élevé (&gt;80) ont des leads très qualifiés — elles peuvent contacter ces étudiants en priorité.</div>}
-                    <div style={{ color: 'rgba(255,255,255,0.6)' }}>Les écoles en bas de tableau ne manquent pas de qualité — elles manquent de visibilité. Un meilleur placement pourrait changer la donne.</div>
+                <WhyBox title="Ce que ça signifie">
+                  <div style={{ color: C.g7, lineHeight: 1.8, fontSize: 12 }}>
+                    {standPerf[0] && <div><strong style={{ color: C.nuit }}>{standPerf[0].name}</strong> domine avec {standPerf[0].scans} scans — sa position dans le salon et sa notoriété attirent naturellement plus de visiteurs.</div>}
+                    {leadsBySchool.length > 3 && <div style={{ marginTop: 8 }}>Les écoles avec un score moyen élevé (&gt;80) ont des leads très qualifiés — elles peuvent contacter ces étudiants en priorité.</div>}
+                    <div style={{ marginTop: 8 }}>Les écoles en bas de tableau ne manquent pas de qualité — elles manquent de visibilité. Un meilleur placement pourrait changer la donne.</div>
                   </div>
-                </div>
+                </WhyBox>
               </div>
             )}
           </div>
@@ -949,7 +841,7 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'clusters' && (
           <div>
-            <Insight color={C.pourpre}>← Zoom sur les 3 profils comportementaux détectés automatiquement par le scoring →</Insight>
+            <Insight color={C.pourpre}>3 profils émergent du comportement réel — pas d&apos;un questionnaire déclaratif. Le scoring est recalculé à chaque scan QR.</Insight>
 
             {/* 3 cluster cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 16 }}>
@@ -980,7 +872,7 @@ export default function AdminDashboard() {
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: t.text, marginBottom: 6, opacity: 0.7 }}>Top étudiants</div>
                       {c.students.slice(0, 3).map(st => (
                         <div key={st.id} onClick={() => setSelectedStudentId(st.id)} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12, cursor: 'pointer', color: t.text }}>
-                          <span style={{ textDecoration: 'underline', textDecorationColor: `${t.color}40` }}>{st.name ?? st.email}</span>
+                          <Link href={`/admin/students/${st.id}`} style={{ textDecoration: 'underline', textDecorationColor: `${t.color}40`, color: 'inherit' }}>{st.name ?? st.email}</Link>
                           <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{st.intent_score}</span>
                         </div>
                       ))}
@@ -1071,7 +963,7 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'strategie' && (
           <div>
-            <Insight color={C.spirit}>← Ces insights alimentent les décisions d&apos;investissement pour les prochains salons</Insight>
+            <Insight color={C.spirit}>Vue cross-salons — comparer les événements pour décider où investir, quels formats développer, quelles écoles inviter.</Insight>
 
             {/* Hero */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
