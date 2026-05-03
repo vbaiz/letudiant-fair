@@ -8,12 +8,12 @@ import TinderCard from 'react-tinder-card';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import StripeRule from '@/components/ui/StripeRule';
-import { getSchools, upsertMatch, saveSchoolToWishlist, getSchoolFormations, saveFormationToWishlist, getAllReels, saveReelToWishlist, getSavedReels, deleteReelFromWishlist, trackArticleInteraction } from '@/lib/supabase/database';
+import { getSchools, upsertMatch, saveSchoolToWishlist, getSchoolFormations, saveFormationToWishlist, getAllReels, saveReelToWishlist, getSavedReels, deleteReelFromWishlist, trackArticleInteraction, getArticles, getPersonalizedArticles } from '@/lib/supabase/database';
 import { getSupabase } from '@/lib/supabase/client';
 import { rankSchoolsForStudent } from '@/lib/supabase/schoolRanking';
 import { rankFormationsForStudent } from '@/lib/supabase/programRanking';
 import { useAuth } from '@/hooks/useAuth';
-import type { SchoolRow, FormationRow, SchoolReelRow, SavedReelRow } from '@/lib/supabase/types';
+import type { SchoolRow, FormationRow, SchoolReelRow, SavedReelRow, ArticleRow } from '@/lib/supabase/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,6 +53,16 @@ function typeVariant(type: string): 'red' | 'blue' | 'yellow' | 'gray' {
   if (type.toLowerCase().includes('université')) return 'blue';
   if (type.toLowerCase().includes('grande')) return 'red';
   return 'gray';
+
+// Map article category to a Tag variant
+function mapCategoryToTag(category: string): 'red' | 'blue' | 'yellow' | 'gray' {
+  const cat = category.toLowerCase();
+  if (cat.includes('admission') || cat.includes('parcoursup')) return 'red';
+  if (cat.includes('emploi') || cat.includes('stage')) return 'blue';
+  if (cat.includes('formation') || cat.includes('master') || cat.includes('école')) return 'yellow';
+  return 'gray';
+}
+
 }
 
 // Generate a gradient from school type so cards still look nice
@@ -630,6 +640,8 @@ export default function DiscoverPage() {
   const [savedReelIds, setSavedReelIds] = useState<Set<string>>(new Set()); // Track saved reels by ID
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null); // For article preview modal
   const [articleViewStartTime, setArticleViewStartTime] = useState<number | null>(null); // Track time spent reading
+  const [articles, setArticles] = useState<Article[]>([]); // Load from DB
+  const [loadingArticles, setLoadingArticles] = useState(true);
 
   // Handle article interaction tracking
   const handleArticleInteraction = async (action: 'viewed' | 'clicked' | 'shared', articleId: string) => {
@@ -657,138 +669,6 @@ export default function DiscoverPage() {
     }
   };
   // Sample articles - Top 10 personalized for student profile
-  const articles: Article[] = [
-    {
-      id: '1',
-      title: 'Parcoursup 2026 : les dates clés à retenir pour votre candidature',
-      rubrique: 'Admission',
-      readingTime: '4 min',
-      published_at: '2026-05-02',
-      tag: 'red',
-      description: 'Découvrez toutes les étapes importantes de Parcoursup 2026, des inscriptions aux réponses. Ne ratez aucune deadline importante pour garantir votre place en formation.',
-      url: 'https://www.letudiant.fr/etudes/parcoursup.html',
-      icon: '✓',
-      size: 'large',
-      gradientClass: 'gradient-1',
-    },
-    {
-      id: '2',
-      title: 'Management, IA, data : l\'ESCE lance un nouveau parcours grande école en partenariat avec l\'ECE',
-      rubrique: 'Formation',
-      readingTime: '5 min',
-      published_at: '2026-05-01',
-      tag: 'yellow',
-      description: 'L\'ESCE renforce sa formation en Management International avec un nouveau parcours spécialisé en Intelligence Artificielle et Data.',
-      url: 'https://www.letudiant.fr/etudes/actu-des-formations/article/l-esce-renforce-la-formation-en-management-international-ia-et-data.html',
-      icon: '⚙️',
-      size: 'normal',
-      gradientClass: 'gradient-2',
-    },
-    {
-      id: '3',
-      title: 'Les secteurs qui recrutent le plus en 2026',
-      rubrique: 'Emploi',
-      readingTime: '6 min',
-      published_at: '2026-04-30',
-      tag: 'blue',
-      description: 'L\'intelligence artificielle, la cybersécurité et les métiers verts dominent le marché de l\'emploi.',
-      url: 'https://www.letudiant.fr/etudes/metiers.html',
-      icon: '💼',
-      size: 'tall',
-      gradientClass: 'gradient-3',
-    },
-    {
-      id: '4',
-      title: 'Top 10 des villes étudiantes en France 2026',
-      rubrique: 'Campus',
-      readingTime: '3 min',
-      published_at: '2026-04-29',
-      tag: 'gray',
-      description: '',
-      url: 'https://www.letudiant.fr/etudes/vie-etudiante.html',
-      icon: '🏛️',
-      size: 'normal',
-      gradientClass: 'gradient-4',
-    },
-    {
-      id: '5',
-      title: 'Faire un Erasmus en 2026 : les meilleures destinations',
-      rubrique: 'À l\'étranger',
-      readingTime: '7 min',
-      published_at: '2026-04-28',
-      tag: 'blue',
-      description: '',
-      url: 'https://www.letudiant.fr/etudes/etudier-a-l-etranger.html',
-      icon: '🌍',
-      size: 'normal',
-      gradientClass: 'gradient-5',
-    },
-    {
-      id: '6',
-      title: 'Comment réussir ses examens : 10 stratégies éprouvées',
-      rubrique: 'Conseils',
-      readingTime: '8 min',
-      published_at: '2026-04-27',
-      tag: 'red',
-      description: '',
-      url: 'https://www.letudiant.fr/etudes/conseils.html',
-      icon: '💡',
-      size: 'wide',
-      gradientClass: 'gradient-6',
-    },
-    {
-      id: '7',
-      title: 'Choisir entre L3 et Master : le guide complet',
-      rubrique: 'Orientation',
-      readingTime: '5 min',
-      published_at: '2026-04-26',
-      tag: 'yellow',
-      description: '',
-      url: 'https://www.letudiant.fr/etudes/licence-master.html',
-      icon: '🧭',
-      size: 'normal',
-      gradientClass: 'gradient-7',
-    },
-    {
-      id: '8',
-      title: 'L\'IA révolutionne la formation : ce que vous devez savoir',
-      rubrique: 'Tech',
-      readingTime: '6 min',
-      published_at: '2026-04-25',
-      tag: 'blue',
-      description: '',
-      url: 'https://www.letudiant.fr/etudes/tech-education.html',
-      icon: '🚀',
-      size: 'normal',
-      gradientClass: 'gradient-8',
-    },
-    {
-      id: '9',
-      title: 'Les meilleures bourses d\'études 2026 : comment les obtenir',
-      rubrique: 'Financement',
-      readingTime: '5 min',
-      published_at: '2026-04-24',
-      tag: 'red',
-      description: '',
-      url: 'https://www.letudiant.fr/etudes/bourses.html',
-      icon: '💰',
-      size: 'normal',
-      gradientClass: 'gradient-9',
-    },
-    {
-      id: '10',
-      title: 'Santé mentale étudiante : gérer le stress et l\'anxiété',
-      rubrique: 'Bien-être',
-      readingTime: '7 min',
-      published_at: '2026-04-23',
-      tag: 'gray',
-      description: 'Le bien-être des étudiants est crucial. Découvrez les ressources disponibles et les techniques efficaces pour gérer le stress.',
-      url: 'https://www.letudiant.fr/etudes/bien-etre-etudiant.html',
-      icon: '🎯',
-      size: 'tall',
-      gradientClass: 'gradient-10',
-    },
-  ];
 
   // ── Sync activeTab with URL searchParams ───────────────────────────────────────
   useEffect(() => {
@@ -978,6 +858,48 @@ export default function DiscoverPage() {
 
     loadReels();
   }, []);
+
+  // ── Load articles from Supabase ─────────────────────────────────────────
+  useEffect(() => {
+    const loadArticles = async () => {
+      try {
+        setLoadingArticles(true);
+
+        let articleData;
+        if (user?.id) {
+          // Get personalized articles based on student profile
+          articleData = await getPersonalizedArticles(user.id, 10);
+        } else {
+          // Get all non-expired articles
+          articleData = await getArticles(10);
+        }
+
+        // Transform ArticleRow to Article format for display
+        const transformedArticles: Article[] = articleData.map((row: ArticleRow) => ({
+          id: row.id,
+          title: row.title,
+          rubrique: row.rubrique,
+          readingTime: row.reading_time_minutes ? `${row.reading_time_minutes} min` : '3 min',
+          published_at: row.published_at ? new Date(row.published_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          tag: mapCategoryToTag(row.category),
+          description: row.description || '',
+          url: row.external_url,
+          icon: row.icon,
+          size: row.size as 'normal' | 'large' | 'tall' | 'wide',
+          gradientClass: row.gradient_class,
+        }));
+
+        setArticles(transformedArticles);
+      } catch (err) {
+        console.error('Failed to load articles:', err);
+        setArticles([]);
+      } finally {
+        setLoadingArticles(false);
+      }
+    };
+
+    loadArticles();
+  }, [user?.id]);
 
   const showToast = (msg: string) => {
     setToast(msg);

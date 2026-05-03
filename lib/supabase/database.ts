@@ -1,5 +1,5 @@
 import { getSupabase } from './client'
-import type { UserRow, EventRow, SchoolRow, ScanRow, LeadRow, MatchRow, GroupRow, AppointmentRow, SchoolReelRow, SavedReelRow, ArticleAnalyticsRow } from './types'
+import type { UserRow, EventRow, SchoolRow, ScanRow, LeadRow, MatchRow, GroupRow, AppointmentRow, SchoolReelRow, SavedReelRow, ArticleAnalyticsRow, ArticleRow } from './types'
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -1004,4 +1004,56 @@ export async function getArticleEngagementStats(articleId: string) {
   }
 
   return data
+}
+
+// ─── Articles (L'Étudiant + Exposant Content) ────────────────────────────────────
+
+/**
+ * Get all valid (non-expired) articles sorted by featured + published date
+ */
+export async function getArticles(limit: number = 10) {
+  const supabase = getSupabase()
+  const now = new Date().toISOString()
+
+  const { data, error } = await supabase
+    .from('articles')
+    .select('*')
+    .or(`expires_at.is.null,expires_at.gt.${now}`)  // Not expired
+    .order('is_featured', { ascending: false })
+    .order('published_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Failed to fetch articles:', error.message)
+    return []
+  }
+
+  return data ?? []
+}
+
+/**
+ * Get personalized articles for a student based on reading history
+ * Phase 2: Just returns newest articles
+ * Phase 4: Will use student_article_preferences to recommend
+ */
+export async function getPersonalizedArticles(studentId: string, limit: number = 10) {
+  const supabase = getSupabase()
+  const now = new Date().toISOString()
+
+  // TODO: Phase 4 - Use student_article_preferences to get favorite categories
+  // For now, just return newest non-expired articles
+
+  const { data, error } = await supabase
+    .from('articles')
+    .select('*')
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
+    .order('published_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Failed to fetch personalized articles:', error.message)
+    return []
+  }
+
+  return data ?? []
 }
