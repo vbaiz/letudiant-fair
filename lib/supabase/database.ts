@@ -1,5 +1,5 @@
 import { getSupabase } from './client'
-import type { UserRow, EventRow, SchoolRow, ScanRow, LeadRow, MatchRow, GroupRow, AppointmentRow, SchoolReelRow, SavedReelRow } from './types'
+import type { UserRow, EventRow, SchoolRow, ScanRow, LeadRow, MatchRow, GroupRow, AppointmentRow, SchoolReelRow, SavedReelRow, SavedArticleRow, ArticleAnalyticsRow, ArticleRow } from './types'
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -917,4 +917,280 @@ export async function getAdminStats(eventId: string) {
     exitScans: scansRes.data?.filter(s => s.channel === 'exit').length ?? 0,
     decidingLeads: leadsRes.data?.filter(l => l.score_tier === 'deciding').length ?? 0,
   }
+}
+
+// ─── Article Analytics (Actualités tracking) ────────────────────────────────
+
+/**
+ * Track article view or interaction
+ * Call this when a student views an article card or spends time reading
+ */
+export async function trackArticleInteraction(
+  studentId: string,
+  articleId: string,
+  action: 'viewed' | 'clicked' | 'shared' | 'time_spent',
+  metadata?: {
+    timeSpentSeconds?: number
+    clickedExternalLink?: boolean
+    sharedTo?: string
+  }
+): Promise<void> {
+  const { error } = await getSupabase().from('article_analytics').insert([
+    {
+      student_id: studentId,
+      article_id: articleId,
+      action,
+      time_spent_seconds: metadata?.timeSpentSeconds || null,
+      clicked_external_link: metadata?.clickedExternalLink || false,
+      shared_to: metadata?.sharedTo || null,
+    },
+  ])
+
+  if (error) {
+    console.error('Failed to track article interaction:', error.message)
+    // Don't throw - tracking failure shouldn't break the app
+  }
+}
+
+/**
+ * Get most popular articles based on engagement
+ */
+export async function getPopularArticles(limit: number = 10) {
+  const { data, error } = await getSupabase()
+    .from('article_engagement_stats')
+    .select('*')
+    .order('total_interactions', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Failed to fetch popular articles:', error.message)
+    return []
+  }
+
+  return data ?? []
+}
+
+/**
+ * Get student's article engagement history (for personalization)
+ */
+export async function getStudentArticlePreferences(studentId: string) {
+  const { data, error } = await getSupabase()
+    .from('student_article_preferences')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('last_interaction_at', { ascending: false })
+
+  if (error) {
+    console.error('Failed to fetch student article preferences:', error.message)
+    return []
+  }
+
+  return data ?? []
+}
+
+/**
+ * Get engagement stats for a specific article
+ */
+export async function getArticleEngagementStats(articleId: string) {
+  const { data, error } = await getSupabase()
+    .from('article_engagement_stats')
+    .select('*')
+    .eq('article_id', articleId)
+    .single()
+
+  if (error) {
+    console.error('Failed to fetch article engagement stats:', error.message)
+    return null
+  }
+
+  return data
+}
+
+// ─── Articles (L'Étudiant + Exposant Content) ────────────────────────────────────
+
+/**
+ * Get all valid (non-expired) articles sorted by featured + published date
+ */
+export async function getArticles(limit: number = 10) {
+  const supabase = getSupabase()
+  const now = new Date().toISOString()
+
+  const { data, error } = await supabase
+    .from('articles')
+    .select('*')
+    .or(`expires_at.is.null,expires_at.gt.${now}`)  // Not expired
+    .order('is_featured', { ascending: false })
+    .order('published_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Failed to fetch articles:', error.message)
+    return []
+  }
+
+  return data ?? []
+}
+
+/**
+ * Get personalized articles for a student based on profile matching
+ * Implements intelligent ranking based on:
+ * 1. Student's education level + branches
+ * 2. Article category match
+ * 3. Most-read articles (featured/is_featured)
+ * 4. Past reading history (from article_analytics)
+ */
+export async function getPersonalizedArticles(studentId: string, limit: number = 10) {
+  const supabase = getSupabase()
+  const now = new Date().toISOString()
+
+  try {
+    // Get student profile for matching
+    const [studentRes, articlesRes, prefRes] = await Promise.all([
+      supabase
+        .from('users')
+        .select('education_level, education_branches, study_wishes')
+        .eq('id', studentId)
+        .single(),
+      supabase
+        .from('articles')
+        .select('*')
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+        .limit(100), // Get more to rank
+      supabase
+        .from('student_article_preferences')
+        .select('article_id, interaction_count, clicks')
+        .eq('student_id', studentId)
+        .order('interaction_count', { ascending: false })
+        .limit(50) // Past reading history
+    ])
+
+    const student = studentRes.data
+    const allArticles = articlesRes.data ?? []
+    const preferences = prefRes.data ?? []
+
+    if (!student || allArticles.length === 0) {
+      return allArticles.slice(0, limit)
+    }
+
+    // Build preference map for quick lookup
+    const prefMap = new Map(preferences.map(p => [p.article_id, p]))
+
+    // Score articles based on profile match
+    const scoredArticles = allArticles.map((article) => {
+      let score = 0
+
+      // 1. Featured/most-read bonus (+30 points)
+      if (article.is_featured) score += 30
+
+      // 2. Category match with education branches
+      const branches = (student.education_branches || []).map((b: string) => b.toLowerCase())
+      const articleCat = (article.category || '').toLowerCase()
+
+      if (articleCat.includes('business') && (branches.includes('business') || branches.includes('management'))) score += 25
+      if (articleCat.includes('tech') && (branches.includes('tech') || branches.includes('technology') || branches.includes('science'))) score += 25
+      if (articleCat.includes('formation') && articleCat.includes('master')) score += 15
+      if (articleCat.includes('emploi') || articleCat.includes('stage')) score += 10
+
+      // 3. Past reading history (+20 points)
+      if (prefMap.has(article.id)) {
+        const pref = prefMap.get(article.id)!
+        score += Math.min(20, pref.interaction_count * 5) // Cap at 20
+      }
+
+      // 4. Recency bonus (articles published recently)
+      if (article.published_at) {
+        const daysSincePublish = Math.floor(
+          (Date.now() - new Date(article.published_at).getTime()) / (1000 * 60 * 60 * 24)
+        )
+        if (daysSincePublish < 7) score += 10
+      }
+
+      return { ...article, _score: score }
+    })
+
+    // Sort by score descending, then by featured, then by published date
+    const ranked = scoredArticles
+      .sort((a, b) => {
+        if (b._score !== a._score) return b._score - a._score
+        if (b.is_featured !== a.is_featured) return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)
+        return (b.published_at ? new Date(b.published_at).getTime() : 0) -
+               (a.published_at ? new Date(a.published_at).getTime() : 0)
+      })
+      .slice(0, limit)
+      .map(({ _score, ...article }) => article) // Remove score field
+
+    return ranked
+  } catch (err) {
+    console.error('Failed to fetch personalized articles:', err)
+    return []
+  }
+}
+
+// ─── Saved Articles (Actualités) ──────────────────────────────────────────────
+
+/**
+ * Save an article to user's wishlist
+ * Returns {alreadySaved: true} if article was already saved, false if newly saved
+ */
+export async function saveArticleToWishlist(userId: string, articleId: string): Promise<{ alreadySaved: boolean }> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('user_saved_articles')
+    .insert([{ user_id: userId, article_id: articleId }])
+
+  if (error?.message.includes('duplicate')) {
+    return { alreadySaved: true }
+  }
+  if (error) throw new Error(`Failed to save article: ${error.message}`)
+  return { alreadySaved: false }
+}
+
+/**
+ * Get all saved articles for a user with full article details
+ * Returns articles sorted by most recently saved first
+ */
+export async function getSavedArticles(userId: string): Promise<(ArticleRow & { saved_at: string })[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('user_saved_articles')
+    .select(`
+      saved_at,
+      article:article_id(*)
+    `)
+    .eq('user_id', userId)
+    .order('saved_at', { ascending: false })
+
+  if (error) throw new Error(`Failed to fetch saved articles: ${error.message}`)
+
+  return (data || []).map((row: any) => ({
+    ...row.article,
+    saved_at: row.saved_at,
+  }))
+}
+
+/**
+ * Delete an article from user's wishlist
+ */
+export async function deleteArticleFromWishlist(userId: string, articleId: string): Promise<void> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('user_saved_articles')
+    .delete()
+    .eq('user_id', userId)
+    .eq('article_id', articleId)
+
+  if (error) throw new Error(`Failed to delete saved article: ${error.message}`)
+}
+
+/**
+ * Get count of articles saved by a user
+ */
+export async function getSavedArticlesCount(userId: string): Promise<number> {
+  const supabase = getSupabase()
+  const { count, error } = await supabase
+    .from('user_saved_articles')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+
+  return error ? 0 : (count || 0)
 }
