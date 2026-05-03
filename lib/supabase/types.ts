@@ -66,7 +66,6 @@ export type EventRow = {
   venue_map: string | null
   address: string | null
   description: string | null
-  is_virtual: boolean
   is_active: boolean
   entry_qr: string | null
   exit_qr: string | null
@@ -171,8 +170,6 @@ export type StandRow = {
   id: string
   event_id: string
   school_id: string
-  location_x: number
-  location_y: number
   category: string
   created_at: string
 }
@@ -196,7 +193,7 @@ export type ScanRow = {
   stand_id: string | null
   session_id: string | null
   channel: 'entry' | 'stand' | 'conference' | 'exit'
-  dwell_estimate: number | null
+  dwell_seconds: number | null
   created_at: string
 }
 
@@ -221,9 +218,7 @@ export type LeadRow = {
   education_branches: string[]
   study_wishes: string[]
   stands_visited: string[]
-  confs_attended: string[]
-  appointment_booked: boolean  // pre-fair appointment = strongest intent signal
-  swipe_result: boolean
+  appointment_booked: boolean
   score_value: number
   score_tier: 'exploring' | 'comparing' | 'deciding'
   score_computed_at: string

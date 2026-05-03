@@ -80,7 +80,7 @@ export default function ExhibitorLeadsPage() {
       // Aggregate scans for this school's stand
       const { data: scanRows } = await supabase
         .from('scans')
-        .select('user_id, channel, dwell_estimate')
+        .select('user_id, channel, dwell_seconds')
         .eq('stand_id', sid)
         .eq('channel', 'stand')
 
@@ -124,8 +124,8 @@ export default function ExhibitorLeadsPage() {
         .slice(0, 5)
         .map(([label, n]) => ({ label, pct: Math.round((n / users.length) * 100) }))
 
-      const totalDwell = rows.reduce((acc, r) => acc + ((r as any).dwell_estimate ?? 0), 0)
-      const avgDwellMin = rows.length > 0 ? Math.round(totalDwell / rows.length) : 0
+      const totalDwellSeconds = rows.reduce((acc, r) => acc + ((r as any).dwell_seconds ?? 1200), 0)
+      const avgDwellMin = rows.length > 0 ? Math.round(totalDwellSeconds / rows.length / 60) : 0
 
       setStats({
         totalScans: total,

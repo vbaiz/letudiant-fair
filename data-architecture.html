@@ -369,7 +369,6 @@
         <div class="field-row"><span class="field-name">venue_map</span><span class="field-type">text (url)</span></div>
         <div class="field-row"><span class="field-name">address</span><span class="field-type">text</span></div>
         <div class="field-row"><span class="field-name">description</span><span class="field-type">text</span></div>
-        <div class="field-row"><span class="field-name">is_virtual</span><span class="field-type">boolean</span></div>
         <div class="field-row"><span class="field-name">is_active</span><span class="field-type">boolean</span></div>
         <div class="field-row"><span class="field-name">entry_qr</span><span class="field-type">text</span></div>
         <div class="field-row"><span class="field-name">exit_qr</span><span class="field-type">text</span></div>
@@ -386,8 +385,6 @@
         <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
         <div class="field-row"><span class="field-name">event_id</span><span class="field-type">uuid → events</span><span class="field-tag tag-fk">FK</span></div>
         <div class="field-row"><span class="field-name">school_id</span><span class="field-type">uuid → schools</span><span class="field-tag tag-fk">FK</span></div>
-        <div class="field-row"><span class="field-name">location_x</span><span class="field-type">numeric</span></div>
-        <div class="field-row"><span class="field-name">location_y</span><span class="field-type">numeric</span></div>
         <div class="field-row"><span class="field-name">category</span><span class="field-type">text</span></div>
       </div>
     </div>
@@ -423,8 +420,8 @@
         <div class="field-row"><span class="field-name">stand_id</span><span class="field-type">uuid → stands</span><span class="field-tag tag-fk">FK</span></div>
         <div class="field-row"><span class="field-name">session_id</span><span class="field-type">uuid → sessions</span><span class="field-tag tag-fk">FK</span></div>
         <div class="field-row"><span class="field-name">channel</span><span class="field-type">scan_channel enum</span></div>
-        <div class="field-row"><span class="field-name">dwell_estimate</span><span class="field-type">int (minutes)</span></div>
-        <div class="field-row"><span class="field-name">scanned_at</span><span class="field-type">timestamptz</span></div>
+        <div class="field-row"><span class="field-name">dwell_seconds</span><span class="field-type">int (seconds, max 1200)</span></div>
+        <div class="field-row"><span class="field-name">created_at</span><span class="field-type">timestamptz</span></div>
       </div>
     </div>
 
@@ -442,10 +439,7 @@
         <div class="field-row"><span class="field-name">education_level</span><span class="field-type">text</span></div>
         <div class="field-row"><span class="field-name">education_branches[]</span><span class="field-type">text[]</span></div>
         <div class="field-row"><span class="field-name">study_wishes[]</span><span class="field-type">text[]</span></div>
-        <div class="field-row"><span class="field-name">stands_visited[]</span><span class="field-type">uuid[]</span></div>
-        <div class="field-row"><span class="field-name">confs_attended[]</span><span class="field-type">uuid[]</span></div>
-        <div class="field-row"><span class="field-name">dwell_minutes</span><span class="field-type">int</span></div>
-        <div class="field-row"><span class="field-name">swipe_result</span><span class="field-type">swipe_direction enum</span></div>
+        <div class="field-row"><span class="field-name">stands_visited[]</span><span class="field-type">uuid[] (snapshot for export)</span></div>
         <div class="field-row"><span class="field-name">score_value</span><span class="field-type">int (0-100)</span></div>
         <div class="field-row"><span class="field-name">score_tier</span><span class="field-type">text</span></div>
         <div class="field-row"><span class="field-name">score_computed_at</span><span class="field-type">timestamptz</span></div>

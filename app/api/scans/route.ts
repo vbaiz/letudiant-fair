@@ -11,39 +11,38 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { eventId, standId, sessionId, channel, dwellEstimate } = body
+  const { eventId, standId, sessionId, channel } = body
 
-  // ── Exit scan: compute actual dwell from entry scan ──────────────────────────
-  let computedDwell: number | null = dwellEstimate ?? null
+  // ── Compute dwell for the previous scan (time between consecutive scans, capped at 20 min) ──
+  const { data: prevScan } = await supabase
+    .from('scans')
+    .select('id, created_at')
+    .eq('user_id', user.id)
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  if (channel === 'exit') {
-    const { data: entryScan } = await supabase
+  if (prevScan) {
+    const prevMs = new Date(prevScan.created_at).getTime()
+    const dwellSeconds = Math.min(Math.round((Date.now() - prevMs) / 1000), 1200)
+    await supabase
       .from('scans')
-      .select('created_at')
-      .eq('user_id', user.id)
-      .eq('event_id', eventId)
-      .eq('channel', 'entry')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-
-    if (entryScan) {
-      const entryMs = new Date(entryScan.created_at).getTime()
-      const exitMs  = Date.now()
-      computedDwell = Math.round((exitMs - entryMs) / 60_000) // minutes
-    }
+      .update({ dwell_seconds: dwellSeconds })
+      .eq('id', prevScan.id)
+      .catch((err: Error) => console.error('[scans] dwell update failed:', err))
   }
 
-  // ── Insert scan ──────────────────────────────────────────────────────────────
+  // ── Insert new scan (dwell_seconds filled when next scan arrives) ────────────
   const { data, error } = await supabase
     .from('scans')
     .insert({
-      user_id:       user.id,
-      event_id:      eventId,
-      stand_id:      standId   ?? null,
-      session_id:    sessionId ?? null,
+      user_id:      user.id,
+      event_id:     eventId,
+      stand_id:     standId   ?? null,
+      session_id:   sessionId ?? null,
       channel,
-      dwell_estimate: computedDwell,
+      dwell_seconds: null,
     })
     .select('id')
     .single()
@@ -63,15 +62,6 @@ export async function POST(request: Request) {
       .catch((err: Error) => console.error('[scans] appointment confirm failed:', err))
   }
 
-  // ── Persist dwell on user profile after exit scan ────────────────────────────
-  if (channel === 'exit' && computedDwell !== null) {
-    await supabase
-      .from('users')
-      .update({ last_dwell_minutes: computedDwell })
-      .eq('id', user.id)
-      .catch(err => console.error('[scans] dwell update failed:', err))
-  }
-
   // ── Refresh intent score after stand / conference / exit scans ───────────────
   if (channel === 'stand' || channel === 'conference' || channel === 'exit') {
     refreshIntentScoreServer(user.id, supabase).catch(err =>
@@ -79,7 +69,7 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.json({ scanId: data?.id ?? '', dwellMinutes: computedDwell })
+  return NextResponse.json({ scanId: data?.id ?? '' })
 }
 
 // ─── Server-side intent score refresh ────────────────────────────────────────
