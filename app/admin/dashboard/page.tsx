@@ -134,6 +134,65 @@ function WhyBox({ title, children }: { title: string; children: React.ReactNode 
   )
 }
 
+/* Action Banner — dynamic contextual insight per tab */
+function ActionBanner({ tab, data }: { tab: Tab; data: {
+  preregTotal: number; preregResolved: number; rdvRate: number; avgStands: number;
+  intentH: number; intentL: number; avgScore: number; attendees: number;
+  explorateurs: number; stands: number; completedEvents: number;
+} }) {
+  let emoji = '💡'; let message = ''; let accent = C.piscine; let bgColor = C.piscineLight; let textColor = C.piscineDark
+  const incomplete = data.preregTotal - data.preregResolved
+
+  if (tab === 'preparation') {
+    if (incomplete > 0 && data.preregTotal > 0 && data.preregResolved / data.preregTotal < 0.7) {
+      emoji = '⚠️'; message = `${fmt(incomplete)} pré-inscrits sans profil complété — envoyer un rappel avant le salon pour maximiser l'engagement`
+      accent = C.spirit; bgColor = C.spiritLight; textColor = C.spiritDark
+    } else {
+      message = `${fmt(data.preregTotal)} pré-inscrits dont ${data.preregTotal > 0 ? Math.round(data.preregResolved / data.preregTotal * 100) : 0}% avec profil complet — bonne base de départ`
+      emoji = '✅'; accent = C.menthe; bgColor = C.mentheLight; textColor = C.mentheDark
+    }
+  } else if (tab === 'jourj') {
+    if (data.rdvRate > 30) {
+      emoji = '🔥'; message = `Engagement exceptionnel — ${data.rdvRate}% de taux RDV et ${data.avgScore}/100 de score moyen`
+      accent = C.menthe; bgColor = C.mentheLight; textColor = C.mentheDark
+    } else if (data.avgStands < 3) {
+      emoji = '⚠️'; message = `${data.avgStands} stands visités en moyenne — en dessous du seuil optimal de 4. Proposer des parcours guidés.`
+      accent = C.spirit; bgColor = C.spiritLight; textColor = C.spiritDark
+    } else {
+      message = `${fmt(data.attendees)} visiteurs tracés · ${data.avgScore}/100 score moyen · ${data.rdvRate}% taux RDV`
+      accent = C.piscine; bgColor = C.piscineLight; textColor = C.piscineDark
+    }
+  } else if (tab === 'bilan') {
+    const efficacite = Math.min(100, Math.round((data.rdvRate * 0.4) + (Math.min(data.avgStands, 5) / 5 * 30) + (Math.min(data.avgScore, 100) / 100 * 30)))
+    emoji = efficacite > 60 ? '📈' : '📉'
+    message = `Score d'efficacité salon : ${efficacite}/100 — ${data.intentH} leads décideurs qualifiés, ${data.rdvRate}% de taux RDV`
+    accent = efficacite > 60 ? C.menthe : C.spirit; bgColor = efficacite > 60 ? C.mentheLight : C.spiritLight; textColor = efficacite > 60 ? C.mentheDark : C.spiritDark
+  } else if (tab === 'clusters') {
+    if (data.explorateurs > 0) {
+      emoji = '🎯'; message = `${fmt(data.explorateurs)} explorateurs récupérables — un parcours guidé par filière pourrait les convertir en comparateurs`
+      accent = C.citron; bgColor = C.citronLight; textColor = C.citronDark
+    } else {
+      message = `${fmt(data.intentH)} décideurs identifiés — profils comportementaux segmentés automatiquement`
+      accent = C.menthe; bgColor = C.mentheLight; textColor = C.mentheDark
+    }
+  } else if (tab === 'strategie') {
+    emoji = '🧭'; message = `${fmt(data.intentH)} leads décideurs prêts à envoyer aux ${fmt(data.stands)} écoles · ${data.completedEvents} salon${data.completedEvents > 1 ? 's' : ''} analysé${data.completedEvents > 1 ? 's' : ''}`
+    accent = C.spirit; bgColor = C.spiritLight; textColor = C.spiritDark
+  }
+
+  if (!message) return null
+  return (
+    <div style={{
+      background: bgColor, border: `1.5px solid ${accent}40`, borderRadius: 12,
+      padding: '14px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14,
+      boxShadow: `0 1px 6px ${accent}15`,
+    }}>
+      <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{emoji}</span>
+      <div style={{ fontSize: 13, fontWeight: 600, color: textColor, lineHeight: 1.5 }}>{message}</div>
+    </div>
+  )
+}
+
 /* Progress bar */
 function PBar({ label, value, max, color, tip }: { label: string; value: number; max: number; color: string; tip?: string }) {
   const w = max === 0 ? 0 : Math.max(3, (value / max) * 100)
@@ -184,9 +243,31 @@ function FlowDiagram({ scansCount, studentsCount, avgScore }: { scansCount: numb
         ))}
       </div>
       <details style={{ marginTop: 16 }}>
-        <summary style={{ cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Voir la formule technique ▾</summary>
-        <div style={{ marginTop: 8, padding: '10px 14px', background: 'rgba(255,255,255,0.05)', borderRadius: 8, fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-          score = 3×stands + 5×conf + 10×rdv + 2×swipes + 3×wishlist + 0.1×min + bonus — décideur ≥66 · comparateur ≥33 · explorateur &lt;33
+        <summary style={{ cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Voir le score d&apos;engagement ▾</summary>
+        <div style={{ marginTop: 12, padding: '16px 18px', background: 'rgba(255,255,255,0.05)', borderRadius: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: 12 }}>Score d&apos;engagement — pyramide de valeur</div>
+          {[
+            { label: 'Rendez-vous confirmé', pts: 10, color: C.menthe, w: 100 },
+            { label: 'Conférence assistée', pts: 5, color: C.spirit, w: 75 },
+            { label: 'Wishlist (école sauvegardée)', pts: 3, color: C.pourpre, w: 60 },
+            { label: 'Stand visité (scan QR)', pts: 3, color: C.piscine, w: 60 },
+            { label: 'Swipe (like/pass)', pts: 2, color: C.citron, w: 45 },
+            { label: 'Temps passé au salon', pts: 0.1, color: C.g5, w: 30 },
+          ].map(r => (
+            <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: `${r.w}%`, height: 6, borderRadius: 3, background: r.color, opacity: 0.8, transition: 'width 0.4s ease', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap' as const }}>{r.label}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: r.color, marginLeft: 'auto', whiteSpace: 'nowrap' as const }}>+{r.pts} pts</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: 12, fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>
+            <span style={{ padding: '3px 8px', borderRadius: 4, background: `${TIER.high.color}30`, color: TIER.high.color, fontWeight: 700 }}>Décideur ≥ 66</span>
+            <span style={{ padding: '3px 8px', borderRadius: 4, background: `${TIER.medium.color}30`, color: TIER.medium.color, fontWeight: 700 }}>Comparateur ≥ 33</span>
+            <span style={{ padding: '3px 8px', borderRadius: 4, background: `${TIER.low.color}30`, color: TIER.low.color, fontWeight: 700 }}>Explorateur &lt; 33</span>
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 8, lineHeight: 1.5, fontStyle: 'italic' as const }}>
+            V1 mesure l&apos;engagement comportemental — la V2 croisera avec la maturité d&apos;orientation.
+          </div>
         </div>
       </details>
     </div>
@@ -564,6 +645,7 @@ export default function AdminDashboard() {
           <div>
             {/* Niveau 1 — Question frame */}
             <TabQuestion emoji="📋" question="Qui sont nos visiteurs ?" explanation="Qualifier les profils en amont pour maximiser l'engagement le Jour J" accentColor={C.piscine} />
+            <ActionBanner tab="preparation" data={{ preregTotal, preregResolved, rdvRate, avgStands, intentH, intentL, avgScore, attendees: attendees.length, explorateurs: intentL, stands: stands.length, completedEvents }} />
 
             {/* Hero row — big red card + dark card */}
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 14 }}>
@@ -695,6 +777,7 @@ export default function AdminDashboard() {
           <div>
             {/* Niveau 1 — Question frame */}
             <TabQuestion emoji="📡" question="Que se passe-t-il en ce moment ?" explanation="Chaque scan QR enrichit le score en temps réel — pilotez le salon avec de la data" accentColor={C.tomate} />
+            <ActionBanner tab="jourj" data={{ preregTotal, preregResolved, rdvRate, avgStands, intentH, intentL, avgScore, attendees: attendees.length, explorateurs: intentL, stands: stands.length, completedEvents }} />
 
             {/* Hero dark */}
             <div style={{ ...card, background: C.nuit, border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: 20, borderRadius: 16, boxShadow: heroShadow }}>
@@ -811,6 +894,7 @@ export default function AdminDashboard() {
           <div>
             {/* Niveau 1 — Question frame */}
             <TabQuestion emoji="📊" question="Est-ce que le salon a aidé les étudiants ?" explanation="Mesurer la progression réelle, pas juste le passage à l'entrée" accentColor={C.menthe} />
+            <ActionBanner tab="bilan" data={{ preregTotal, preregResolved, rdvRate, avgStands, intentH, intentL, avgScore, attendees: attendees.length, explorateurs: intentL, stands: stands.length, completedEvents }} />
 
             {/* Hero */}
             <div style={{ ...card, display: 'flex', gap: 24, alignItems: 'center', borderRadius: 16, boxShadow: heroShadow }}>
@@ -872,27 +956,38 @@ export default function AdminDashboard() {
               <ColorCard label="Accompagnés" value={attendees.length} bg={C.piscineLight} textColor={C.piscineDark} tip="Nombre total d'étudiants dont on a tracé le parcours au salon." />
             </div>
 
-            {/* Recommendations — McKinsey style */}
+            {/* Recommendations — Full-width vertical hierarchy */}
             {recommendations.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 4 }}>Recommandations</div>
                 <SectionSub text="Actions prioritaires basées sur les données du salon" />
-                <div style={{ display: 'grid', gridTemplateColumns: recommendations.length > 2 ? 'repeat(3, 1fr)' : `repeat(${recommendations.length}, 1fr)`, gap: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10 }}>
                   {recommendations.map((r, i) => {
-                    const tagColors = r.type === 'warning'
-                      ? { bg: '#FEE2E2', text: '#991B1B', label: 'URGENT' }
-                      : r.type === 'success'
-                      ? { bg: '#D1FAE5', text: '#065F46', label: 'OPPORTUNITÉ' }
-                      : { bg: '#DBEAFE', text: '#1E40AF', label: 'À SURVEILLER' }
+                    const isWarning = r.type === 'warning'
+                    const isSuccess = r.type === 'success'
+                    const borderColor = isWarning ? C.tomate : isSuccess ? TIER.high.color : C.piscine
+                    const bgColor = isWarning ? '#FEF2F2' : isSuccess ? '#F0FDF4' : '#EFF6FF'
+                    const tagColors = isWarning
+                      ? { bg: C.tomate, text: '#fff', label: '🔴 URGENT' }
+                      : isSuccess
+                      ? { bg: TIER.high.color, text: '#fff', label: '🟢 OPPORTUNITÉ' }
+                      : { bg: C.piscine, text: '#fff', label: '🔵 À SURVEILLER' }
                     return (
-                      <div key={i} style={{ background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '24px 22px', position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: r.type === 'warning' ? C.tomate : r.type === 'success' ? TIER.high.color : C.piscine }} />
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                          <span style={{ fontSize: 24, fontWeight: 800, color: C.g3, fontFamily: 'Georgia, serif', lineHeight: 1 }}>{String(i + 1).padStart(2, '0')}</span>
-                          <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', background: tagColors.bg, color: tagColors.text }}>{tagColors.label}</span>
+                      <div key={i} style={{
+                        background: bgColor, borderRadius: 14, padding: '20px 24px',
+                        borderLeft: `5px solid ${borderColor}`,
+                        boxShadow: isWarning ? `0 2px 12px ${C.tomate}15` : '0 1px 4px rgba(0,0,0,0.03)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                          <span style={{ fontSize: 28, fontWeight: 800, color: borderColor, fontFamily: 'Georgia, serif', lineHeight: 1, opacity: 0.4 }}>{String(i + 1).padStart(2, '0')}</span>
+                          <span style={{
+                            padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 800,
+                            letterSpacing: '0.08em', background: tagColors.bg, color: tagColors.text,
+                          }}>{tagColors.label}</span>
                         </div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: C.nuit, lineHeight: 1.4, marginBottom: 12 }}>{r.text}</div>
-                        <div style={{ fontSize: 12, color: C.g5, lineHeight: 1.6, padding: '12px 14px', background: C.g1, borderRadius: 8 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: C.nuit, lineHeight: 1.4, marginBottom: 10 }}>{r.text}</div>
+                        <div style={{ fontSize: 12, color: C.g5, lineHeight: 1.6, padding: '10px 14px', background: 'rgba(255,255,255,0.6)', borderRadius: 8, borderLeft: `2px solid ${borderColor}30` }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: C.g5, display: 'block', marginBottom: 4 }}>Pourquoi ?</span>
                           {r.why}
                         </div>
                       </div>
@@ -976,6 +1071,7 @@ export default function AdminDashboard() {
           <div>
             {/* Niveau 1 — Question frame */}
             <TabQuestion emoji="🎯" question="Qui sont les décideurs, comparateurs, explorateurs ?" explanation="3 profils détectés automatiquement par le scoring comportemental" accentColor={C.pourpre} />
+            <ActionBanner tab="clusters" data={{ preregTotal, preregResolved, rdvRate, avgStands, intentH, intentL, avgScore, attendees: attendees.length, explorateurs: intentL, stands: stands.length, completedEvents }} />
 
             {/* 3 cluster cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 16 }}>
@@ -1099,6 +1195,7 @@ export default function AdminDashboard() {
           <div>
             {/* Niveau 1 — Question frame */}
             <TabQuestion emoji="🧭" question="Où investir pour les prochains salons ?" explanation="Comparer les événements pour prendre des décisions data-driven" accentColor={C.spirit} />
+            <ActionBanner tab="strategie" data={{ preregTotal, preregResolved, rdvRate, avgStands, intentH, intentL, avgScore, attendees: attendees.length, explorateurs: intentL, stands: stands.length, completedEvents }} />
 
             {/* Hero */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
