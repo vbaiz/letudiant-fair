@@ -2,8 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase/client';
 import Tag from '@/components/ui/Tag';
 import SectionLabel from '@/components/ui/SectionLabel';
@@ -219,18 +218,17 @@ function openPrintWindow(imgDataUrl: string, stands: StandData[], event: EventDa
 </body>
 </html>`;
 
-  const win = window.open('', '_blank', 'width=800,height=900');
-  if (win) {
-    win.document.write(html);
-    win.document.close();
-  }
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank', 'width=800,height=900');
+  win?.addEventListener('unload', () => URL.revokeObjectURL(url), { once: true });
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function FairPage({ params }: { params: Promise<{ eventId: string }> }) {
+export default function FairPage() {
   const router  = useRouter();
-  const { eventId } = use(params);
+  const { eventId } = useParams<{ eventId: string }>();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [activeTab, setActiveTab]           = useState<'plan' | 'programme'>('plan');
