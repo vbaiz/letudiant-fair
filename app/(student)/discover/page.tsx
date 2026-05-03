@@ -9,7 +9,7 @@ import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import StripeRule from '@/components/ui/StripeRule';
 import Icon from '@/components/ui/Icon';
-import { getSchools, upsertMatch, saveSchoolToWishlist, getSchoolFormations, saveFormationToWishlist, getAllReels, saveReelToWishlist, getSavedReels, deleteReelFromWishlist, trackArticleInteraction, getArticles, getPersonalizedArticles } from '@/lib/supabase/database';
+import { getSchools, upsertMatch, saveSchoolToWishlist, getSchoolFormations, saveFormationToWishlist, getAllReels, saveReelToWishlist, getSavedReels, deleteReelFromWishlist, trackArticleInteraction, getArticles, getPersonalizedArticles, saveArticleToWishlist, getSavedArticles, getSavedArticlesCount } from '@/lib/supabase/database';
 import { getSupabase } from '@/lib/supabase/client';
 import { rankSchoolsForStudent } from '@/lib/supabase/schoolRanking';
 import { rankFormationsForStudent } from '@/lib/supabase/programRanking';
@@ -642,6 +642,8 @@ export default function DiscoverPage() {
   const [articleViewStartTime, setArticleViewStartTime] = useState<number | null>(null); // Track time spent reading
   const [articles, setArticles] = useState<Article[]>([]); // Load from DB
   const [loadingArticles, setLoadingArticles] = useState(true);
+  const [savedArticleIds, setSavedArticleIds] = useState<Set<string>>(new Set()); // Track saved articles by ID
+  const [savedArticlesCount, setSavedArticlesCount] = useState<number>(0); // Counter for saved articles badge
 
   // Handle article interaction tracking
   const handleArticleInteraction = async (action: 'viewed' | 'clicked' | 'shared', articleId: string) => {
@@ -668,6 +670,31 @@ export default function DiscoverPage() {
       // Don't show error to user - analytics shouldn't break the app
     }
   };
+
+  // Handle saving an article to wishlist
+  const handleSaveArticle = async (articleId: string, articleTitle: string) => {
+    if (!user?.id) {
+      showToast('❌ Vous devez être connecté pour enregistrer un article');
+      return;
+    }
+
+    try {
+      const result = await saveArticleToWishlist(user.id, articleId);
+
+      if (result.alreadySaved) {
+        showToast('✅ Article déjà sauvegardé');
+      } else {
+        // Update state
+        setSavedArticleIds(prev => new Set(prev).add(articleId));
+        setSavedArticlesCount(prev => prev + 1);
+        showToast('✅ Article enregistré');
+      }
+    } catch (err) {
+      console.error('Failed to save article:', err);
+      showToast('❌ Erreur lors de la sauvegarde');
+    }
+  };
+
   // Sample articles - Top 10 personalized for student profile
 
   // ── Sync activeTab with URL searchParams ───────────────────────────────────────
@@ -899,6 +926,30 @@ export default function DiscoverPage() {
     };
 
     loadArticles();
+  }, [user?.id]);
+
+  // Load saved articles on mount
+  useEffect(() => {
+    const loadSavedArticles = async () => {
+      if (!user?.id) {
+        setSavedArticleIds(new Set());
+        setSavedArticlesCount(0);
+        return;
+      }
+
+      try {
+        const count = await getSavedArticlesCount(user.id);
+        setSavedArticlesCount(count);
+
+        const saved = await getSavedArticles(user.id);
+        const savedIds = new Set(saved.map(article => article.id));
+        setSavedArticleIds(savedIds);
+      } catch (err) {
+        console.error('Failed to load saved articles:', err);
+      }
+    };
+
+    loadSavedArticles();
   }, [user?.id]);
 
   const showToast = (msg: string) => {
@@ -1518,10 +1569,38 @@ export default function DiscoverPage() {
       {/* ── Actualités tab ── */}
       {activeTab === 'actualites' && (
         <div style={{ padding: '24px 16px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ marginBottom: 40 }}>
-            <h2 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a1a', margin: '0 0 8px' }}>
-              Actualités
-            </h2>
+          <div style={{ marginBottom: 40, position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <h2 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a1a', margin: 0 }}>
+                Actualités
+              </h2>
+              {savedArticlesCount > 0 && (
+                <button
+                  onClick={() => router.push('/saved?tab=liens&subtab=actualites')}
+                  style={{
+                    background: '#EF4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '10px 16px',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = '#DC2626';
+                    (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = '#EF4444';
+                    (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+                  }}
+                >
+                  {savedArticlesCount} enregistré{savedArticlesCount > 1 ? 's' : ''}
+                </button>
+              )}
+            </div>
             <p style={{ color: '#666', fontSize: 14, margin: 0 }}>
               Les 10 meilleures actualités pour votre profil, mises à jour chaque semaine
             </p>
@@ -1635,6 +1714,40 @@ export default function DiscoverPage() {
               >
                 ✕
               </button>
+
+              {/* Save Article Button */}
+              <button
+                onClick={() => handleSaveArticle(selectedArticle.id, selectedArticle.title)}
+                disabled={savedArticleIds.has(selectedArticle.id)}
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 64,
+                  padding: '8px 16px',
+                  background: savedArticleIds.has(selectedArticle.id) ? 'rgba(34, 197, 94, 0.3)' : 'rgba(59, 130, 246, 0.3)',
+                  border: `2px solid ${savedArticleIds.has(selectedArticle.id) ? '#22c55e' : '#3b82f6'}`,
+                  borderRadius: 8,
+                  color: 'white',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: savedArticleIds.has(selectedArticle.id) ? 'default' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: savedArticleIds.has(selectedArticle.id) ? 0.8 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!savedArticleIds.has(selectedArticle.id)) {
+                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!savedArticleIds.has(selectedArticle.id)) {
+                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.3)';
+                  }
+                }}
+              >
+                {savedArticleIds.has(selectedArticle.id) ? '✅ Sauvegardé' : 'Enregistrer'}
+              </button>
+
               <h2 style={{ color: 'white', fontSize: 24, fontWeight: 700, lineHeight: 1.3, margin: 0 }}>
                 {selectedArticle.title}
               </h2>

@@ -147,6 +147,14 @@ export type SavedReelRow = {
   created_at: string
 }
 
+export type SavedArticleRow = {
+  id: string
+  user_id: string
+  article_id: string
+  saved_at: string
+  created_at: string
+}
+
 export type ArticleAnalyticsRow = {
   id: string
   student_id: string
@@ -385,6 +393,12 @@ export type Database = {
         Row: ArticleRow
         Insert: Partial<ArticleRow> & { id: string; title: string; external_url: string; external_source: string }
         Update: Partial<ArticleRow>
+        Relationships: []
+      }
+      user_saved_articles: {
+        Row: SavedArticleRow
+        Insert: Partial<SavedArticleRow> & { user_id: string; article_id: string }
+        Update: Partial<SavedArticleRow>
         Relationships: []
       }
     }

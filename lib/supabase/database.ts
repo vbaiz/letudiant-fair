@@ -1,5 +1,5 @@
 import { getSupabase } from './client'
-import type { UserRow, EventRow, SchoolRow, ScanRow, LeadRow, MatchRow, GroupRow, AppointmentRow, SchoolReelRow, SavedReelRow, ArticleAnalyticsRow, ArticleRow } from './types'
+import type { UserRow, EventRow, SchoolRow, ScanRow, LeadRow, MatchRow, GroupRow, AppointmentRow, SchoolReelRow, SavedReelRow, SavedArticleRow, ArticleAnalyticsRow, ArticleRow } from './types'
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -1124,4 +1124,73 @@ export async function getPersonalizedArticles(studentId: string, limit: number =
     console.error('Failed to fetch personalized articles:', err)
     return []
   }
+}
+
+// ─── Saved Articles (Actualités) ──────────────────────────────────────────────
+
+/**
+ * Save an article to user's wishlist
+ * Returns {alreadySaved: true} if article was already saved, false if newly saved
+ */
+export async function saveArticleToWishlist(userId: string, articleId: string): Promise<{ alreadySaved: boolean }> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('user_saved_articles')
+    .insert([{ user_id: userId, article_id: articleId }])
+
+  if (error?.message.includes('duplicate')) {
+    return { alreadySaved: true }
+  }
+  if (error) throw new Error(`Failed to save article: ${error.message}`)
+  return { alreadySaved: false }
+}
+
+/**
+ * Get all saved articles for a user with full article details
+ * Returns articles sorted by most recently saved first
+ */
+export async function getSavedArticles(userId: string): Promise<(ArticleRow & { saved_at: string })[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('user_saved_articles')
+    .select(`
+      saved_at,
+      article:article_id(*)
+    `)
+    .eq('user_id', userId)
+    .order('saved_at', { ascending: false })
+
+  if (error) throw new Error(`Failed to fetch saved articles: ${error.message}`)
+
+  return (data || []).map((row: any) => ({
+    ...row.article,
+    saved_at: row.saved_at,
+  }))
+}
+
+/**
+ * Delete an article from user's wishlist
+ */
+export async function deleteArticleFromWishlist(userId: string, articleId: string): Promise<void> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('user_saved_articles')
+    .delete()
+    .eq('user_id', userId)
+    .eq('article_id', articleId)
+
+  if (error) throw new Error(`Failed to delete saved article: ${error.message}`)
+}
+
+/**
+ * Get count of articles saved by a user
+ */
+export async function getSavedArticlesCount(userId: string): Promise<number> {
+  const supabase = getSupabase()
+  const { count, error } = await supabase
+    .from('user_saved_articles')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+
+  return error ? 0 : (count || 0)
 }
