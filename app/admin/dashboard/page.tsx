@@ -150,7 +150,9 @@ function PBar({ label, value, max, color, tip }: { label: string; value: number;
   )
 }
 
-const ttS = { contentStyle: { background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 6, fontSize: 13 }, labelStyle: { fontWeight: 700, color: C.nuit } }
+const card: React.CSSProperties = { background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 26px', marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }
+const heroShadow = '0 2px 12px rgba(0,0,0,0.06)'
+const ttS = { contentStyle: { background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 8, fontSize: 13 }, labelStyle: { fontWeight: 700, color: C.nuit } }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FLOW DIAGRAM
@@ -521,7 +523,38 @@ export default function AdminDashboard() {
             ))}
           </div>
         )}
-
+        {/* Stepper — more subtle */}
+        {events.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 18 }}>
+            {([
+              { key: 'preparation' as Tab, label: '① Préparer' },
+              { key: 'jourj' as Tab, label: '② Piloter' },
+              { key: 'bilan' as Tab, label: '③ Analyser' },
+              { key: 'clusters' as Tab, label: '④ Comprendre' },
+              { key: 'strategie' as Tab, label: '⑤ Décider' },
+            ]).map((st, i) => {
+              const tabs: Tab[] = ['preparation', 'jourj', 'bilan', 'clusters', 'strategie']
+              const currentIdx = tabs.indexOf(tab)
+              const thisIdx = tabs.indexOf(st.key)
+              const isActive = tab === st.key
+              const isPast = thisIdx < currentIdx
+              return (
+                <div key={st.key} style={{ display: 'flex', alignItems: 'center' }}>
+                  <button onClick={() => setTab(st.key)} style={{
+                    padding: '5px 12px', borderRadius: 16, fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                    border: 'none', letterSpacing: '0.02em', transition: 'all 0.2s',
+                    background: isActive ? `${C.nuit}CC` : isPast ? '#D1FAE520' : C.g1,
+                    color: isActive ? '#fff' : isPast ? '#065F46' : C.g5,
+                  }}>
+                    {isPast ? '✓ ' : ''}{st.label}
+                  </button>
+                  {i < 4 && <div style={{ width: 16, height: 1, background: C.g3 }} />}
+                </div>
+              )
+            })}
+          </div>
+        )}
+  
         {loading && <div style={{ textAlign: 'center' as const, padding: 80, color: C.g5 }}>Chargement…</div>}
 
         {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -529,7 +562,8 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'preparation' && (
           <div>
-            <Insight color={C.piscine}>Connaître ses visiteurs avant qu&apos;ils arrivent — chaque profil complété est un visiteur qualifié le jour J.</Insight>
+            {/* Niveau 1 — Question frame */}
+            <TabQuestion emoji="📋" question="Qui sont nos visiteurs ?" explanation="Qualifier les profils en amont pour maximiser l'engagement le Jour J" accentColor={C.piscine} />
 
             {/* Hero row — big red card + dark card */}
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 14 }}>
@@ -577,14 +611,46 @@ export default function AdminDashboard() {
             <SectionSub text="Profils inscrits et niveau d'engagement avant le salon" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
               <ColorCard label="Étudiants app" value={students.length} sub="inscrits via l'app" bg={C.piscineLight} textColor={C.piscineDark} tip="Étudiants inscrits dans l'app avec le rôle student. Source : table users WHERE role = student." />
-              <ColorCard label="Filières moy." value={avgBranches} sub="par étudiant" bg={C.mentheLight} textColor={C.mentheDark} tip="Nombre moyen de filières d'intérêt cochées par étudiant. Plus c'est haut, plus le profil est complet." />
-              <ColorCard label="Score moyen" value={`${avgScore}/100`} bg={C.pourpreLight} textColor={C.pourpreDark} tip="Moyenne des scores d'engagement. Formule : 5×stands + 8×conf + 15×rdv + temps + profil. Calculé automatiquement par trigger PostgreSQL." />
+              <ColorCard label="Diversité d'intérêts" value={avgBranches} sub="par étudiant" bg={C.mentheLight} textColor={C.mentheDark} tip="Nombre moyen de filières d'intérêt cochées par étudiant. Plus c'est haut, plus le profil est complet." />
+              <ColorCard label="Score moyen" value={`${avgScore}/100`} bg={C.pourpreLight} textColor={C.pourpreDark} tip="Moyenne des scores d'engagement. Formule : 3×stands + 5×conf + 10×rdv + 2×swipes + 3×wishlist + 0.1×min + bonus profil. Calculé automatiquement par trigger PostgreSQL." />
             </div>
 
-            {/* Two columns */}
+            {/* Provenance */}
+            <div style={{ ...card, marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 4 }}>
+                <Tip text="Répartition géographique des visiteurs inscrits, basée sur le code postal déclaré.">Provenance des visiteurs</Tip>
+              </div>
+              <SectionSub text="D'où viennent les étudiants — basé sur le code postal déclaré" />
+              {(() => {
+                const zones: Record<string, number> = { 'Paris intra-muros': 0, 'Petite couronne': 0, 'Grande couronne': 0, 'Hors Île-de-France': 0 }
+                attendees.forEach(u => {
+                  const cp = (u as Record<string, unknown>).postal_code as string | null
+                  if (!cp) return
+                  if (cp.startsWith('75')) zones['Paris intra-muros']++
+                  else if (['92', '93', '94'].some(p => cp.startsWith(p))) zones['Petite couronne']++
+                  else if (['77', '78', '91', '95'].some(p => cp.startsWith(p))) zones['Grande couronne']++
+                  else zones['Hors Île-de-France']++
+                })
+                const total = Object.values(zones).reduce((a, b) => a + b, 0)
+                const colors = [C.tomate, C.piscine, C.menthe, C.g5]
+                return total > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                    {Object.entries(zones).map(([zone, count], i) => (
+                      <div key={zone} style={{ textAlign: 'center' as const, padding: '12px 8px', background: C.g1, borderRadius: 12 }}>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: colors[i] }}>{total > 0 ? Math.round(count / total * 100) : 0}%</div>
+                        <div style={{ fontSize: 11, color: C.g5, marginTop: 2, fontWeight: 600 }}>{zone}</div>
+                        <div style={{ fontSize: 10, color: C.g3 }}>{count} étud.</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div style={{ fontSize: 13, color: C.g5 }}>Aucun code postal renseigné</div>
+              })()}
+            </div>
+
+            {/* Two columns — improved bottom half */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={card}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 12 }}>
+              <div style={{ ...card, border: `1px solid ${C.g2}` }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 4 }}>
                   <Tip text="L'entonnoir montre la conversion : combien de pré-inscrits ont complété leur profil et sont venus au salon.">Entonnoir d&apos;inscription</Tip>
                 </div>
                 <SectionSub text="Combien d'étudiants passent chaque étape du processus d'inscription" />
@@ -627,7 +693,8 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'jourj' && (
           <div>
-            <Insight color={C.tomate}>Chaque scan QR = +5 à +15 points de score. Le comportement des visiteurs se transforme en données actionnables.</Insight>
+            {/* Niveau 1 — Question frame */}
+            <TabQuestion emoji="📡" question="Que se passe-t-il en ce moment ?" explanation="Chaque scan QR enrichit le score en temps réel — pilotez le salon avec de la data" accentColor={C.tomate} />
 
             {/* Hero dark */}
             <div style={{ ...card, background: C.nuit, border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: 20, borderRadius: 16, boxShadow: heroShadow }}>
@@ -742,7 +809,8 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'bilan' && (
           <div>
-            <Insight color={C.menthe}>Est-ce que le salon a aidé les étudiants ? On mesure la progression réelle — pas juste le passage à l&apos;entrée.</Insight>
+            {/* Niveau 1 — Question frame */}
+            <TabQuestion emoji="📊" question="Est-ce que le salon a aidé les étudiants ?" explanation="Mesurer la progression réelle, pas juste le passage à l'entrée" accentColor={C.menthe} />
 
             {/* Hero */}
             <div style={{ ...card, display: 'flex', gap: 24, alignItems: 'center', borderRadius: 16, boxShadow: heroShadow }}>
@@ -759,6 +827,40 @@ export default function AdminDashboard() {
                     </div>
                   </Link>
                 ))}
+              </div>
+            </div>
+
+            {/* Impact ROI — 4 cards on same row */}
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 4 }}>Impact & ROI</div>
+            <SectionSub text="Indicateurs impossibles à mesurer sans tracking digital" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 16 }}>
+              <div style={{ background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 24px', borderTop: `3px solid ${C.menthe}` }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: C.mentheDark, marginBottom: 8 }}>
+                  <Tip text="Proportion de pré-inscrits qui sont effectivement venus au salon et ont scanné leur QR d'entrée.">Conversion pré-inscription → visite</Tip>
+                </div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: C.mentheDark }}>{preregTotal > 0 ? Math.round(enteredIds.size / preregTotal * 100) : 0}%</div>
+                <div style={{ fontSize: 11, color: C.g5, fontStyle: 'italic' as const, marginTop: 6 }}>Sans tracking digital, aucune visibilité sur ce taux</div>
+              </div>
+              <div style={{ background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 24px', borderTop: `3px solid ${C.piscine}` }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: C.piscineDark, marginBottom: 8 }}>
+                  <Tip text="Taux de visiteurs ayant pris au moins un rendez-vous avec une école — indicateur clé d'engagement.">Visiteurs avec RDV</Tip>
+                </div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: C.piscineDark }}>{rdvRate}%</div>
+                <div style={{ fontSize: 11, color: C.g5, fontStyle: 'italic' as const, marginTop: 6 }}>Les salons classiques n&apos;ont aucun moyen de mesurer ce taux</div>
+              </div>
+              <div style={{ background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 24px', borderTop: `3px solid ${C.spirit}` }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: C.spiritDark, marginBottom: 8 }}>
+                  <Tip text="Nombre moyen de stands différents visités par étudiant — mesure la richesse du parcours d'orientation.">Stands visités en moy.</Tip>
+                </div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: C.spiritDark }}>{avgStands}</div>
+                <div style={{ fontSize: 11, color: C.g5, fontStyle: 'italic' as const, marginTop: 6 }}>Chaque stand visité est une interaction mesurée et scorée</div>
+              </div>
+              <div style={{ background: '#fff', border: `1px solid ${C.g2}`, borderRadius: 16, padding: '22px 24px', borderTop: `3px solid ${C.pourpre}` }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: C.pourpreDark, marginBottom: 8 }}>
+                  <Tip text="Pourcentage de visiteurs ayant complété un parcours complet : entrée + 3 stands + swipe + RDV.">Parcours complets</Tip>
+                </div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: C.pourpreDark }}>{(() => { const complete = attendees.filter(u => (standsMap[u.id]?.size ?? 0) >= 3 && matches.some(m => m.student_id === u.id && m.student_swipe === 'right') && rdvSet.has(u.id)); return attendees.length > 0 ? Math.round(complete.length / attendees.length * 100) : 0 })()}%</div>
+                <div style={{ fontSize: 11, color: C.g5, fontStyle: 'italic' as const, marginTop: 6 }}>Entrée + 3 stands + swipe + RDV</div>
               </div>
             </div>
 
@@ -822,15 +924,46 @@ export default function AdminDashboard() {
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 4 }}>
                     <Tip text="Nombre de visiteurs par école, segmentés par profil comportemental. Les scores sont calculés automatiquement.">Performance par école</Tip>
                   </div>
-                  <div style={{ overflowX: 'auto' as const }}><table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 }}><thead><tr style={{ borderBottom: `2px solid ${C.g2}` }}>{['École', 'Leads', 'Décideurs', 'Score'].map(h => <th key={h} style={{ padding: '10px 12px', textAlign: h === 'École' ? 'left' as const : 'right' as const, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: C.g5 }}>{h}</th>)}</tr></thead><tbody>{leadsBySchool.slice(0, 10).map((l, i) => <tr key={l.id} style={{ borderBottom: `1px solid ${C.g1}`, background: i < 3 ? C.g1 : '#fff' }}><td style={{ padding: '11px 12px', fontWeight: i < 3 ? 700 : 400, color: C.nuit }}>{l.name}</td><td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 800 }}>{l.total}</td><td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 700, color: TIER.high.color }}>{l.high}</td><td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 700 }}>{l.avg}/100</td></tr>)}</tbody></table></div>
-                </div>
-                <WhyBox title="Ce que ça signifie">
-                  <div style={{ color: C.g7, lineHeight: 1.8, fontSize: 12 }}>
-                    {standPerf[0] && <div><strong style={{ color: C.nuit }}>{standPerf[0].name}</strong> domine avec {standPerf[0].scans} scans — sa position dans le salon et sa notoriété attirent naturellement plus de visiteurs.</div>}
-                    {leadsBySchool.length > 3 && <div style={{ marginTop: 8 }}>Les écoles avec un score moyen élevé (&gt;80) ont des leads très qualifiés — elles peuvent contacter ces étudiants en priorité.</div>}
-                    <div style={{ marginTop: 8 }}>Les écoles en bas de tableau ne manquent pas de qualité — elles manquent de visibilité. Un meilleur placement pourrait changer la donne.</div>
+                  <SectionSub text="Nombre de leads par école avec leur niveau d'engagement" />
+                  <div style={{ overflowX: 'auto' as const }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: `2px solid ${C.g2}` }}>
+                          {['École', 'Leads', 'Décideurs', 'Match %', 'Score'].map(h => (
+                            <th key={h} style={{ padding: '10px 12px', textAlign: h === 'École' ? 'left' as const : 'right' as const, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: C.g5 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leadsBySchool.slice(0, 10).map((l, i) => {
+                          const sm = matches.filter(m => m.school_id === l.id)
+                          const mt = sm.length
+                          const mr = sm.filter(m => m.student_swipe === 'right').length
+                          const mp = mt > 0 ? Math.round(mr / mt * 100) : 0
+                          return (
+                            <tr key={l.id} style={{ borderBottom: `1px solid ${C.g1}`, background: i < 3 ? C.g1 : '#fff' }}>
+                              <td style={{ padding: '11px 12px', fontWeight: i < 3 ? 700 : 400, color: C.nuit }}>{l.name}</td>
+                              <td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 800 }}>{l.total}</td>
+                              <td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 700, color: TIER.high.color }}>{l.high}</td>
+                              <td style={{ padding: '11px 12px', textAlign: 'right' as const }}>
+                                {mt > 0 ? <span style={{ fontWeight: 700, color: mp > 75 ? '#059669' : mp > 50 ? '#F59E0B' : '#EC1F27' }}>{mp}%</span> : '—'}
+                              </td>
+                              <td style={{ padding: '11px 12px', textAlign: 'right' as const, fontWeight: 700 }}>{l.avg}/100</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                </WhyBox>
+                </div>
+                <div style={{ ...card, background: C.nuit, border: 'none', color: '#fff' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Ce que ça signifie</div>
+                  <div style={{ lineHeight: 1.8, fontSize: 12 }}>
+                    {standPerf[0] && <div style={{ marginBottom: 10 }}><strong style={{ color: C.menthe }}>{standPerf[0].name}</strong> domine avec {standPerf[0].scans} scans — sa position dans le salon et sa notoriété attirent naturellement plus de visiteurs.</div>}
+                    {leadsBySchool.length > 3 && <div style={{ marginBottom: 10, color: 'rgba(255,255,255,0.7)' }}>Les écoles avec un score moyen élevé (&gt;80) ont des leads très qualifiés — elles peuvent contacter ces étudiants en priorité.</div>}
+                    <div style={{ color: 'rgba(255,255,255,0.6)' }}>Les écoles en bas de tableau ne manquent pas de qualité — elles manquent de visibilité. Un meilleur placement pourrait changer la donne.</div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -841,7 +974,8 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'clusters' && (
           <div>
-            <Insight color={C.pourpre}>3 profils émergent du comportement réel — pas d&apos;un questionnaire déclaratif. Le scoring est recalculé à chaque scan QR.</Insight>
+            {/* Niveau 1 — Question frame */}
+            <TabQuestion emoji="🎯" question="Qui sont les décideurs, comparateurs, explorateurs ?" explanation="3 profils détectés automatiquement par le scoring comportemental" accentColor={C.pourpre} />
 
             {/* 3 cluster cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 16 }}>
@@ -963,7 +1097,8 @@ export default function AdminDashboard() {
         {/* ═══════════════════════════════════════════════════════════════════ */}
         {!loading && tab === 'strategie' && (
           <div>
-            <Insight color={C.spirit}>Vue cross-salons — comparer les événements pour décider où investir, quels formats développer, quelles écoles inviter.</Insight>
+            {/* Niveau 1 — Question frame */}
+            <TabQuestion emoji="🧭" question="Où investir pour les prochains salons ?" explanation="Comparer les événements pour prendre des décisions data-driven" accentColor={C.spirit} />
 
             {/* Hero */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
