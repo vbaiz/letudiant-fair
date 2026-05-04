@@ -127,45 +127,26 @@ export default function CollaborerPage() {
 
         console.log('Current user:', user?.id, user?.email);
 
-        if (!user) {
+        if (!user || !user.id) {
           setError('Vous devez être connecté pour accéder à cette page');
           setLoading(false);
           return;
         }
 
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('school_id, id')
-          .eq('id', user.id)
-          .single();
-
-        console.log('Profile data:', profile);
-        console.log('Profile error:', profileError);
-
-        if (profileError) {
-          console.error('Error loading profile:', profileError);
-          setError(`Erreur: ${profileError.message}`);
-          setLoading(false);
-          return;
-        }
-
-        // Use school_id if available, otherwise use user_id as fallback for testing
-        const schoolIdToUse = profile?.school_id || profile?.id;
-        console.log('School ID to use:', schoolIdToUse);
-
-        if (!schoolIdToUse) {
-          setError('Impossible de charger votre profil - aucun ID disponible');
-          setLoading(false);
-          return;
-        }
+        // Use user_id as school_id (simple approach for exhibitors)
+        const schoolIdToUse = user.id;
+        console.log('Using school_id:', schoolIdToUse);
 
         setSchoolId(schoolIdToUse);
 
-        // Fetch swipes for this school
-        const { data: swipesData } = await supabase
+        // Fetch swipes for this user
+        const { data: swipesData, error: swipesError } = await supabase
           .from('school_swipes')
           .select('*')
           .eq('school_id', schoolIdToUse);
+
+        console.log('Swipes data:', swipesData);
+        console.log('Swipes error:', swipesError);
 
         if (swipesData) {
           setSwipes(swipesData as Swipe[]);
