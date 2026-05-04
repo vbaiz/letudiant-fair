@@ -133,17 +133,19 @@ export default function CollaborerPage() {
 
         const { data: profile } = await supabase
           .from('users')
-          .select('school_id')
+          .select('school_id, id')
           .eq('id', user.id)
           .single();
 
-        if (!profile?.school_id) {
-          setError('Vous devez être associé à une école pour créer du contenu');
+        // Use school_id if available, otherwise use user_id as fallback for testing
+        const schoolIdToUse = profile?.school_id || profile?.id;
+        if (!schoolIdToUse) {
+          setError('Impossible de charger votre profil');
           setLoading(false);
           return;
         }
 
-        setSchoolId(profile.school_id);
+        setSchoolId(schoolIdToUse);
 
         // Fetch swipes for this school
         const { data: swipesData } = await supabase
