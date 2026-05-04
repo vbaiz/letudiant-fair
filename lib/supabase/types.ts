@@ -123,6 +123,36 @@ export type FormationRow = {
   created_at: string
 }
 
+export type SchoolSwipeRow = {
+  id: string
+  school_id: string
+  titre: string
+  description: string | null
+  duree_value: number | null
+  duree_unit: string | null
+  niveau: string | null
+  modalite: string | null
+  admission: string | null
+  cout: number | null
+  cout_devise: string | null
+  couleur: string | null
+  image_url: string | null
+  tags: string[] | null
+  view_count: number
+  save_count: number
+  status: string
+  published_at: string
+  created_at: string
+  updated_at: string
+}
+
+export type SchoolSwipeForDisplay = SchoolSwipeRow & {
+  school_name?: string
+  school_type?: string
+  score?: number
+  reason?: string
+}
+
 export type SchoolReelRow = {
   id: string
   school_id: string

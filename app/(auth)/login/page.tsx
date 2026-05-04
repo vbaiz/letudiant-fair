@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Logo from '@/components/ui/Logo'
 import Icon, { type IconName } from '@/components/ui/Icon'
@@ -32,6 +32,11 @@ function LoginInner() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -74,6 +79,8 @@ function LoginInner() {
       setLoading(false)
     }
   }
+
+  if (!mounted) return null
 
   return (
     <div className="le-auth-bg" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -160,7 +167,7 @@ function LoginInner() {
             </div>
 
             <form onSubmit={handleEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div>
+              <div suppressHydrationWarning>
                 <label style={labelStyle}>Email</label>
                 <input
                   type="email"
