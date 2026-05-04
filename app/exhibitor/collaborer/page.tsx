@@ -161,6 +161,11 @@ export default function CollaborerPage() {
 
   const handleCreateSwipe = async () => {
     try {
+      if (!schoolId) {
+        console.error('School ID not set');
+        return;
+      }
+
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('school_swipes')
@@ -550,8 +555,8 @@ export default function CollaborerPage() {
                   </label>
                   <input
                     type="number"
-                    value={formData.cout}
-                    onChange={(e) => setFormData({ ...formData, cout: parseFloat(e.target.value) })}
+                    value={formData.cout || ''}
+                    onChange={(e) => setFormData({ ...formData, cout: e.target.value ? parseFloat(e.target.value) : 0 })}
                     placeholder="5000"
                     style={{
                       width: '100%',
