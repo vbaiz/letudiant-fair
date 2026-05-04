@@ -125,22 +125,36 @@ export default function CollaborerPage() {
         const supabase = getSupabase();
         const { data: { user } } = await supabase.auth.getUser();
 
+        console.log('Current user:', user?.id, user?.email);
+
         if (!user) {
           setError('Vous devez être connecté pour accéder à cette page');
           setLoading(false);
           return;
         }
 
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('users')
           .select('school_id, id')
           .eq('id', user.id)
           .single();
 
+        console.log('Profile data:', profile);
+        console.log('Profile error:', profileError);
+
+        if (profileError) {
+          console.error('Error loading profile:', profileError);
+          setError(`Erreur: ${profileError.message}`);
+          setLoading(false);
+          return;
+        }
+
         // Use school_id if available, otherwise use user_id as fallback for testing
         const schoolIdToUse = profile?.school_id || profile?.id;
+        console.log('School ID to use:', schoolIdToUse);
+
         if (!schoolIdToUse) {
-          setError('Impossible de charger votre profil');
+          setError('Impossible de charger votre profil - aucun ID disponible');
           setLoading(false);
           return;
         }
@@ -151,14 +165,14 @@ export default function CollaborerPage() {
         const { data: swipesData } = await supabase
           .from('school_swipes')
           .select('*')
-          .eq('school_id', profile.school_id);
+          .eq('school_id', schoolIdToUse);
 
         if (swipesData) {
           setSwipes(swipesData as Swipe[]);
         }
       } catch (err) {
         console.error('Error loading data:', err);
-        setError('Erreur lors du chargement des données');
+        setError(`Erreur: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
       } finally {
         setLoading(false);
       }
