@@ -103,6 +103,7 @@ export default function CollaborerPage() {
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [schoolId, setSchoolId] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<SwipeFormData>({
     titre: '',
@@ -124,28 +125,38 @@ export default function CollaborerPage() {
         const supabase = getSupabase();
         const { data: { user } } = await supabase.auth.getUser();
 
-        if (user) {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('school_id')
-            .eq('id', user.id)
-            .single();
+        if (!user) {
+          setError('Vous devez être connecté pour accéder à cette page');
+          setLoading(false);
+          return;
+        }
 
-          if (profile?.school_id) {
-            setSchoolId(profile.school_id);
-            // Fetch swipes for this school
-            const { data: swipesData } = await supabase
-              .from('school_swipes')
-              .select('*')
-              .eq('school_id', profile.school_id);
+        const { data: profile } = await supabase
+          .from('users')
+          .select('school_id')
+          .eq('id', user.id)
+          .single();
 
-            if (swipesData) {
-              setSwipes(swipesData as Swipe[]);
-            }
-          }
+        if (!profile?.school_id) {
+          setError('Vous devez être associé à une école pour créer du contenu');
+          setLoading(false);
+          return;
+        }
+
+        setSchoolId(profile.school_id);
+
+        // Fetch swipes for this school
+        const { data: swipesData } = await supabase
+          .from('school_swipes')
+          .select('*')
+          .eq('school_id', profile.school_id);
+
+        if (swipesData) {
+          setSwipes(swipesData as Swipe[]);
         }
       } catch (err) {
         console.error('Error loading data:', err);
+        setError('Erreur lors du chargement des données');
       } finally {
         setLoading(false);
       }
@@ -162,7 +173,12 @@ export default function CollaborerPage() {
   const handleCreateSwipe = async () => {
     try {
       if (!schoolId) {
-        console.error('School ID not set');
+        setError('Impossible de créer un contenu sans école associée');
+        return;
+      }
+
+      if (!formData.titre.trim()) {
+        setError('Le titre est requis');
         return;
       }
 
@@ -194,6 +210,7 @@ export default function CollaborerPage() {
       if (error) throw error;
 
       if (data) {
+        setError(null);
         setSwipes([...swipes, data as Swipe]);
         setFormData({
           titre: '',
@@ -212,6 +229,7 @@ export default function CollaborerPage() {
       }
     } catch (err) {
       console.error('Error creating swipe:', err);
+      setError(`Erreur: ${err instanceof Error ? err.message : 'Impossible de créer le contenu'}`);
     }
   };
 
@@ -232,6 +250,21 @@ export default function CollaborerPage() {
               Créez et publiez du contenu pour attirer les étudiants
             </p>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div style={{
+              padding: '16px 20px',
+              margin: '20px 40px 0',
+              backgroundColor: '#fee2e2',
+              border: '1px solid #fca5a5',
+              borderRadius: 6,
+              color: '#991b1b',
+              fontSize: 13,
+            }}>
+              ⚠️ {error}
+            </div>
+          )}
 
           {/* KPIs */}
           <div style={{ padding: '40px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
@@ -351,17 +384,20 @@ export default function CollaborerPage() {
               </div>
               <button
                 onClick={() => setView('create-swipe')}
+                disabled={!schoolId}
                 style={{
                   marginTop: '20px',
                   padding: '10px 16px',
-                  backgroundColor: C.tomate,
+                  backgroundColor: !schoolId ? C.gray300 : C.tomate,
                   color: '#fff',
                   border: 'none',
                   borderRadius: 6,
                   fontSize: 14,
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: !schoolId ? 'not-allowed' : 'pointer',
+                  opacity: !schoolId ? 0.6 : 1,
                 }}
+                title={!schoolId ? 'Impossible de créer du contenu sans école associée' : ''}
               >
                 Créer un swipe
               </button>
@@ -404,6 +440,20 @@ export default function CollaborerPage() {
           >
             ← Retour
           </button>
+
+          {error && (
+            <div style={{
+              padding: '12px 16px',
+              marginBottom: '20px',
+              backgroundColor: '#fee2e2',
+              border: '1px solid #fca5a5',
+              borderRadius: 6,
+              color: '#991b1b',
+              fontSize: 13,
+            }}>
+              {error}
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
             {/* Form */}
@@ -661,17 +711,20 @@ export default function CollaborerPage() {
 
               <button
                 onClick={handleCreateSwipe}
+                disabled={!schoolId || !formData.titre.trim()}
                 style={{
                   width: '100%',
                   padding: '12px',
-                  backgroundColor: C.tomate,
+                  backgroundColor: (!schoolId || !formData.titre.trim()) ? C.gray300 : C.tomate,
                   color: '#fff',
                   border: 'none',
                   borderRadius: 6,
                   fontSize: 14,
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: (!schoolId || !formData.titre.trim()) ? 'not-allowed' : 'pointer',
+                  opacity: (!schoolId || !formData.titre.trim()) ? 0.6 : 1,
                 }}
+                title={!schoolId ? 'Impossible de créer du contenu sans école associée' : (!formData.titre.trim() ? 'Le titre est requis' : '')}
               >
                 Enregistrer & Publier
               </button>
