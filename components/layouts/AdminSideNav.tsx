@@ -9,6 +9,7 @@ import { getSupabase } from "@/lib/supabase/client";
 interface NavItem {
   href: string;
   label: string;
+  sub: string;
   icon: React.ReactNode;
   activeColor: string;
 }
@@ -36,12 +37,12 @@ function IconLogout() {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/admin/dashboard", label: "Tableau de bord", icon: <IconDashboard />, activeColor: "#EC1F27" },
-  { href: "/admin/salons", label: "Salons", icon: <IconSalons />, activeColor: "#FF6B35" },
-  { href: "/admin/utilisateurs", label: "Utilisateurs", icon: <IconUsers />, activeColor: "#0066CC" },
-  { href: "/admin/students", label: "Étudiants", icon: <IconStudents />, activeColor: "#4DB8A8" },
-  { href: "/admin/segments", label: "Segments", icon: <IconSegments />, activeColor: "#932D99" },
-  { href: "/admin/parametres", label: "Paramètres", icon: <IconSettings />, activeColor: "#6B6B6B" },
+  { href: "/admin/dashboard", label: "Tableau de bord", sub: "Analyse par salon", icon: <IconDashboard />, activeColor: "#EC1F27" },
+  { href: "/admin/salons", label: "Salons", sub: "Gestion des événements", icon: <IconSalons />, activeColor: "#FF6B35" },
+  { href: "/admin/utilisateurs", label: "Utilisateurs", sub: "Tous les comptes", icon: <IconUsers />, activeColor: "#0066CC" },
+  { href: "/admin/students", label: "Étudiants", sub: "Liste et parcours", icon: <IconStudents />, activeColor: "#4DB8A8" },
+  { href: "/admin/segments", label: "Segments", sub: "Vue globale", icon: <IconSegments />, activeColor: "#932D99" },
+  { href: "/admin/parametres", label: "Paramètres", sub: "Configuration", icon: <IconSettings />, activeColor: "#6B6B6B" },
 ];
 
 export default function AdminSideNav() {
@@ -153,7 +154,13 @@ export default function AdminSideNav() {
                   <span style={isActive ? { color: item.activeColor } : undefined}>
                     {item.icon}
                   </span>
-                  <span>{item.label}</span>
+                  <span style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                    <span>{item.label}</span>
+                    <span style={{
+                      fontSize: "9px", fontWeight: 400, opacity: isActive ? 0.7 : 0.45,
+                      letterSpacing: "0.02em", lineHeight: 1,
+                    }}>{item.sub}</span>
+                  </span>
                 </Link>
               </li>
             );

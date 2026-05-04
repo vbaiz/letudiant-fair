@@ -247,12 +247,12 @@ function FlowDiagram({ scansCount, studentsCount, avgScore }: { scansCount: numb
         <div style={{ marginTop: 12, padding: '16px 18px', background: 'rgba(255,255,255,0.05)', borderRadius: 12 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: 12 }}>Score d&apos;engagement — pyramide de valeur</div>
           {[
-            { label: 'Rendez-vous confirmé', pts: 10, color: C.menthe, w: 100 },
-            { label: 'Conférence assistée', pts: 5, color: C.spirit, w: 75 },
-            { label: 'Wishlist (école sauvegardée)', pts: 3, color: C.pourpre, w: 60 },
-            { label: 'Stand visité (scan QR)', pts: 3, color: C.piscine, w: 60 },
-            { label: 'Swipe (like/pass)', pts: 2, color: C.citron, w: 45 },
-            { label: 'Temps passé au salon', pts: 0.1, color: C.g5, w: 30 },
+            { label: 'Rendez-vous confirmé', pts: 15, color: C.menthe, w: 100 },
+            { label: 'Conférence assistée', pts: 8, color: C.spirit, w: 75 },
+            { label: 'Stand visité (scan QR)', pts: 5, color: C.piscine, w: 55 },
+            { label: 'Wishlist (école sauvegardée)', pts: 3, color: C.pourpre, w: 40 },
+            { label: 'Profil complété (filières renseignées)', pts: 2, color: C.citron, w: 30 },
+            { label: 'Temps passé au salon', pts: 0.1, color: C.g5, w: 20 },
           ].map(r => (
             <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <div style={{ width: `${r.w}%`, height: 6, borderRadius: 3, background: r.color, opacity: 0.8, transition: 'width 0.4s ease', flexShrink: 0 }} />
@@ -261,9 +261,9 @@ function FlowDiagram({ scansCount, studentsCount, avgScore }: { scansCount: numb
             </div>
           ))}
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: 12, fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>
-            <span style={{ padding: '3px 8px', borderRadius: 4, background: `${TIER.high.color}30`, color: TIER.high.color, fontWeight: 700 }}>Décideur ≥ 66</span>
-            <span style={{ padding: '3px 8px', borderRadius: 4, background: `${TIER.medium.color}30`, color: TIER.medium.color, fontWeight: 700 }}>Comparateur ≥ 33</span>
-            <span style={{ padding: '3px 8px', borderRadius: 4, background: `${TIER.low.color}30`, color: TIER.low.color, fontWeight: 700 }}>Explorateur &lt; 33</span>
+            <span style={{ padding: '3px 8px', borderRadius: 4, background: `${TIER.high.color}30`, color: TIER.high.color, fontWeight: 700 }}>Décideur ≥ 60</span>
+            <span style={{ padding: '3px 8px', borderRadius: 4, background: `${TIER.medium.color}30`, color: TIER.medium.color, fontWeight: 700 }}>Comparateur ≥ 30</span>
+            <span style={{ padding: '3px 8px', borderRadius: 4, background: `${TIER.low.color}30`, color: TIER.low.color, fontWeight: 700 }}>Explorateur &lt; 30</span>
           </div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 8, lineHeight: 1.5, fontStyle: 'italic' as const }}>
             V1 mesure l&apos;engagement comportemental — la V2 croisera avec la maturité d&apos;orientation.
@@ -504,12 +504,17 @@ export default function AdminDashboard() {
 
   const recommendations = useMemo(() => {
     const r: { text: string; why: string; type: 'success' | 'warning' | 'info' }[] = []
-    if (preregTotal > 0 && preregResolved / preregTotal < 0.7) r.push({ text: 'Envoyer un email de rappel 48h avant le salon avec lien direct vers l\'app', why: `Seulement ${pct(preregResolved, preregTotal)}% des pré-inscrits ont complété leur profil. Les profils complétés ont un score moyen 3× supérieur aux profils incomplets.`, type: 'warning' })
-    if (intentH > intentL * 2) r.push({ text: 'Augmenter les créneaux RDV — la demande dépasse l\'offre', why: `Ratio décideurs/explorateurs excellent (${intentH}/${intentL}). ${rdvRate}% des visiteurs prennent un RDV, ce qui sature les créneaux disponibles.`, type: 'success' })
-    if (avgStands < 3) r.push({ text: 'Proposer des parcours guidés par filière pour augmenter les visites', why: `${avgStands} stands visités en moyenne — en dessous du seuil optimal de 4+. Les parcours thématiques augmentent les visites de 40%.`, type: 'info' })
+    const completedProfiles = attendees.filter(u => u.education_level && u.bac_series && u.education_branches && u.education_branches.length > 0)
+    const incompleteProfiles = attendees.filter(u => !u.education_level || !u.bac_series || !u.education_branches || !u.education_branches.length)
+    const avgComplete = completedProfiles.length > 0 ? Math.round(completedProfiles.reduce((s, u) => s + u.intent_score, 0) / completedProfiles.length) : 0
+    const avgIncomplete = incompleteProfiles.length > 0 ? Math.round(incompleteProfiles.reduce((s, u) => s + u.intent_score, 0) / incompleteProfiles.length) : 0
+    const profileRatio = avgIncomplete > 0 ? Math.round(avgComplete / avgIncomplete * 10) / 10 : 0
+    if (preregTotal > 0 && preregResolved / preregTotal < 0.7) r.push({ text: 'Envoyer un email de rappel 48h avant le salon avec lien direct vers l\'app', why: `Seulement ${pct(preregResolved, preregTotal)}% des pré-inscrits ont complété leur profil.${profileRatio > 1 ? ` Les profils complétés ont un score moyen ${profileRatio}× supérieur aux profils incomplets.` : ''}`, type: 'warning' })
+    if (intentH > intentL * 2) r.push({ text: 'Augmenter les créneaux RDV — la demande dépasse l\'offre', why: `Ratio décideurs/explorateurs excellent (${intentH}/${intentL}). ${rdvRate}% des visiteurs prennent un RDV — un signal fort de maturité d\'orientation.`, type: 'success' })
+    if (avgStands < 3) r.push({ text: 'Proposer des parcours guidés par filière pour augmenter les visites', why: `${avgStands} stands visités en moyenne — en dessous du seuil optimal de 4+. Un parcours thématique aiderait les explorateurs à découvrir plus d\'écoles.`, type: 'info' })
     if (swipeT > 0 && swipeR / swipeT > 0.7) r.push({ text: 'Bon matching écoles/visiteurs — continuer à optimiser l\'algorithme', why: `Taux de swipe droit de ${pct(swipeR, swipeT)}% — les écoles présentées correspondent aux attentes des visiteurs.`, type: 'success' })
     return r
-  }, [preregTotal, preregResolved, intentH, intentL, avgStands, swipeR, swipeT, rdvRate])
+  }, [preregTotal, preregResolved, intentH, intentL, avgStands, swipeR, swipeT, rdvRate, attendees])
 
   const crossEvents = useMemo(() => events.map(ev => {
     const evSc = allScans.filter(sc => sc.event_id === ev.id)
@@ -694,7 +699,7 @@ export default function AdminDashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
               <ColorCard label="Étudiants app" value={students.length} sub="inscrits via l'app" bg={C.piscineLight} textColor={C.piscineDark} tip="Étudiants inscrits dans l'app avec le rôle student. Source : table users WHERE role = student." />
               <ColorCard label="Diversité d'intérêts" value={avgBranches} sub="par étudiant" bg={C.mentheLight} textColor={C.mentheDark} tip="Nombre moyen de filières d'intérêt cochées par étudiant. Plus c'est haut, plus le profil est complet." />
-              <ColorCard label="Score moyen" value={`${avgScore}/100`} bg={C.pourpreLight} textColor={C.pourpreDark} tip="Moyenne des scores d'engagement. Formule : 3×stands + 5×conf + 10×rdv + 2×swipes + 3×wishlist + 0.1×min + bonus profil. Calculé automatiquement par trigger PostgreSQL." />
+              <ColorCard label="Score moyen" value={`${avgScore}/100`} bg={C.pourpreLight} textColor={C.pourpreDark} tip="Moyenne des scores d'engagement. Calculé automatiquement par trigger PostgreSQL : 5 pts/stand + 8 pts/conférence + 15 pts/RDV + 0.1 pts/min + bonus profil. Seuils : décideur ≥60, comparateur ≥30." />
             </div>
 
             {/* Provenance */}
@@ -807,14 +812,25 @@ export default function AdminDashboard() {
             </div>
 
             {/* 5 colored KPIs */}
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginTop: 14, marginBottom: 4 }}>Interactions en cours</div>
-            <SectionSub text="Interactions enregistrées pendant le salon" />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 14 }}>
-              <ColorCard label="Scans stands" value={standScans.length} bg={C.piscineLight} textColor={C.piscineDark} tip="Nombre total de QR codes scannés sur les stands. Chaque scan ajoute +5 pts au score." />
-              <ColorCard label="Conférences" value={confScans.length} bg={C.spiritLight} textColor={C.spiritDark} tip="Scans QR d'entrée en conférence. Chaque conférence ajoute +8 pts au score." />
-              <ColorCard label="Swipes droits" value={swipeR} sub={swipeT > 0 ? `sur ${swipeT}` : undefined} bg={C.tomateLight} textColor={C.tomateDark} tip="Nombre d'écoles likées par les étudiants via le swipe. Indicateur d'intérêt." />
-              <ColorCard label="RDV confirmés" value={appointments.filter(a => a.status === 'confirmed').length} bg={C.mentheLight} textColor={C.mentheDark} tip="RDV pris et confirmés entre étudiants et écoles. Chaque RDV ajoute +15 pts au score." />
-              <ColorCard label="Leads" value={attendees.length} sub={`${intentH} décideurs`} bg={C.pourpreLight} textColor={C.pourpreDark} tip="Nombre total d'étudiants entrés au salon. Les décideurs ont un score ≥ 66." />
+            {/* Compact interaction stats — single row */}
+            <div style={{ ...card, padding: '14px 22px', marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5 }}>Interactions</div>
+                <div style={{ display: 'flex', gap: 24 }}>
+                  {[
+                    { label: 'Scans stands', value: standScans.length, color: C.piscine },
+                    { label: 'Conférences', value: confScans.length, color: C.spirit },
+                    { label: 'Swipes ❤️', value: `${swipeR}/${swipeT}`, color: C.tomate },
+                    { label: 'RDV confirmés', value: appointments.filter(a => a.status === 'confirmed').length, color: C.menthe },
+                    { label: 'Leads totaux', value: `${attendees.length} (${intentH} 🎯)`, color: C.pourpre },
+                  ].map(x => (
+                    <div key={x.label} style={{ textAlign: 'center' as const }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: x.color, lineHeight: 1 }}>{typeof x.value === 'number' ? fmt(x.value) : x.value}</div>
+                      <div style={{ fontSize: 9, color: C.g5, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginTop: 3 }}>{x.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Chart */}
@@ -896,11 +912,16 @@ export default function AdminDashboard() {
             <TabQuestion emoji="📊" question="Est-ce que le salon a aidé les étudiants ?" explanation="Mesurer la progression réelle, pas juste le passage à l'entrée" accentColor={C.menthe} />
             <ActionBanner tab="bilan" data={{ preregTotal, preregResolved, rdvRate, avgStands, intentH, intentL, avgScore, attendees: attendees.length, explorateurs: intentL, stands: stands.length, completedEvents }} />
 
-            {/* Hero */}
+            {/* Hero with synthesis score */}
             <div style={{ ...card, display: 'flex', gap: 24, alignItems: 'center', borderRadius: 16, boxShadow: heroShadow }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, padding: '3px 10px', borderRadius: 6, background: C.mentheLight, color: C.mentheDark, marginBottom: 10 }}>Résultats</div>
                 <div style={{ fontSize: 14, color: C.g5, lineHeight: 1.6 }}>Le scoring segmente automatiquement les visiteurs en 3 profils comportementaux.</div>
+              </div>
+              {/* Synthesis score */}
+              <div style={{ textAlign: 'center' as const, padding: '12px 20px', background: C.nuit, borderRadius: 14, minWidth: 120 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>Efficacité</div>
+                <div style={{ fontSize: 36, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{Math.min(100, Math.round((rdvRate * 0.4) + (Math.min(avgStands, 5) / 5 * 30) + (Math.min(avgScore, 100) / 100 * 30)))}<span style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.4)' }}>/100</span></div>
               </div>
               <div style={{ display: 'flex', gap: 20, textAlign: 'center' as const }}>
                 {[{ v: intentH, l: 'Décideurs', c: TIER.high }, { v: intentM, l: 'Comparateurs', c: TIER.medium }, { v: intentL, l: 'Explorateurs', c: TIER.low }].map(x => (
@@ -908,6 +929,7 @@ export default function AdminDashboard() {
                     <div style={{ cursor: 'pointer' }}>
                       <div style={{ fontSize: 36, fontWeight: 800, color: x.c.color }}>{x.v}</div>
                       <div style={{ fontSize: 9, color: C.g5, textTransform: 'uppercase' as const, letterSpacing: '0.1em' }}>{x.l}</div>
+                      <div style={{ fontSize: 8, color: C.piscine, marginTop: 3, opacity: 0.7 }}>voir détail →</div>
                     </div>
                   </Link>
                 ))}
@@ -946,14 +968,6 @@ export default function AdminDashboard() {
                 <div style={{ fontSize: 32, fontWeight: 800, color: C.pourpreDark }}>{(() => { const complete = attendees.filter(u => (standsMap[u.id]?.size ?? 0) >= 3 && matches.some(m => m.student_id === u.id && m.student_swipe === 'right') && rdvSet.has(u.id)); return attendees.length > 0 ? Math.round(complete.length / attendees.length * 100) : 0 })()}%</div>
                 <div style={{ fontSize: 11, color: C.g5, fontStyle: 'italic' as const, marginTop: 6 }}>Entrée + 3 stands + swipe + RDV</div>
               </div>
-            </div>
-
-            {/* 4 colored KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
-              <ColorCard label="Score moyen" value={`${avgScore}/100`} bg={C.spiritLight} textColor={C.spiritDark} tip="Moyenne des scores d'engagement de tous les visiteurs entrés au salon." />
-              <ColorCard label="RDV pris" value={appointments.filter(a => a.status !== 'cancelled').length} sub={`${rdvRate}% des visiteurs`} bg={C.mentheLight} textColor={C.mentheDark} tip="Nombre total de RDV pris (hors annulés). Le % indique la proportion de visiteurs qui ont pris au moins un RDV." />
-              <ColorCard label="Wishlist moy." value={avgWishlist} sub="écoles sauvegardées" bg={C.pourpreLight} textColor={C.pourpreDark} tip="Nombre moyen d'écoles ajoutées en favoris par étudiant." />
-              <ColorCard label="Accompagnés" value={attendees.length} bg={C.piscineLight} textColor={C.piscineDark} tip="Nombre total d'étudiants dont on a tracé le parcours au salon." />
             </div>
 
             {/* Recommendations — Full-width vertical hierarchy */}
@@ -1077,10 +1091,19 @@ export default function AdminDashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 16 }}>
               {clusters.map(c => {
                 const t = TIER[c.level] ?? TIER.low; const tot = clusters.reduce((s, x) => s + x.count, 0) || 1
+                // Health indicator: green if segment is performing well, orange if needs attention, red if critical
+                const health = c.level === 'high'
+                  ? (c.rdvPct > 50 ? { icon: '🟢', label: 'Excellent' } : c.rdvPct > 25 ? { icon: '🟡', label: 'Bon' } : { icon: '🔴', label: 'À améliorer' })
+                  : c.level === 'medium'
+                  ? (c.avgStands > 2 ? { icon: '🟢', label: 'Engagés' } : c.avgStands > 1 ? { icon: '🟡', label: 'Passifs' } : { icon: '🔴', label: 'Décrochage' })
+                  : (c.count > 0 && c.avgDwell > 15 ? { icon: '🟡', label: 'Récupérables' } : c.count > 0 ? { icon: '🔴', label: 'À risque' } : { icon: '⚪', label: 'Aucun' })
                 return (
                   <div key={c.level} style={{ background: t.bg, border: `1.5px solid ${t.border}`, borderRadius: 16, padding: '22px 24px', position: 'relative' as const, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                     <div style={{ position: 'absolute' as const, top: 0, left: 0, right: 0, height: 4, background: t.gradient }} />
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: t.text, marginBottom: 8 }}>{t.label}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: t.text }}>{t.label}</div>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: t.text, opacity: 0.7 }}>{health.icon} {health.label}</span>
+                    </div>
                     <div style={{ fontSize: 34, fontWeight: 800, color: t.text, lineHeight: 1 }}>{c.count} <span style={{ fontSize: 13, fontWeight: 500 }}>({pct(c.count, tot)}%)</span></div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 14px', marginTop: 16, fontSize: 11, color: t.text }}>
                       <div>Score <strong style={{ display: 'block', fontSize: 17 }}>{c.avgScore}</strong></div>
@@ -1106,7 +1129,7 @@ export default function AdminDashboard() {
                           <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{st.intent_score}</span>
                         </div>
                       ))}
-                      {c.students.length > 3 && <div style={{ fontSize: 10, marginTop: 4, color: t.text, opacity: 0.6 }}>+ {c.students.length - 3} autres →</div>}
+                      {c.students.length > 3 && <Link href="/admin/students" style={{ fontSize: 10, marginTop: 4, color: t.text, opacity: 0.6, textDecoration: 'none', display: 'block' }}>+ {c.students.length - 3} autres — voir la liste complète →</Link>}
                     </div>
                     {/* Parcours type */}
                     <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${t.border}` }}>
@@ -1204,10 +1227,10 @@ export default function AdminDashboard() {
               <ColorCard label="À venir" value={upcomingEvents} sub="en attente de données" bg={C.spiritLight} textColor={C.spiritDark} tip="Événements futurs sans données de visite." />
             </div>
 
-            {/* Table — with "À venir" labels */}
+            {/* Table — compact, top 6 only */}
             <div style={card}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 4 }}>Comparaison des salons</div>
-              <SectionSub text="Performance comparée de chaque événement du réseau" />
+              <SectionSub text="Performance comparée — salons réalisés en premier, à venir ensuite" />
               <div style={{ overflowX: 'auto' as const }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 }}>
                   <thead>
@@ -1218,10 +1241,10 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {crossEvents.map(ev => {
+                    {[...crossEvents].sort((a, b) => (b.visitors > 0 ? 1 : 0) - (a.visitors > 0 ? 1 : 0)).slice(0, 6).map(ev => {
                       const isUpcoming = ev.visitors === 0
                       return (
-                        <tr key={ev.id} style={{ borderBottom: `1px solid ${C.g1}`, background: ev.id === selEvent?.id ? C.piscineLight : '#fff', opacity: isUpcoming ? 0.6 : 1 }}>
+                        <tr key={ev.id} style={{ borderBottom: `1px solid ${C.g1}`, background: ev.id === selEvent?.id ? C.piscineLight : '#fff', opacity: isUpcoming ? 0.5 : 1 }}>
                           <td style={{ padding: '11px 10px', fontWeight: 700, color: C.nuit }}>
                             {ev.name}
                             {isUpcoming && <span style={{ display: 'inline-block', marginLeft: 8, fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: C.g1, color: C.g5 }}>À venir</span>}
@@ -1239,6 +1262,11 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+              {crossEvents.length > 6 && (
+                <div style={{ textAlign: 'center' as const, paddingTop: 10, fontSize: 11, color: C.g5 }}>
+                  + {crossEvents.length - 6} autres salons sur le réseau
+                </div>
+              )}
             </div>
 
             {/* Recommendations + tendances */}
@@ -1270,8 +1298,8 @@ export default function AdminDashboard() {
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: C.g5, marginBottom: 4 }}>Recommandations stratégiques</div>
                 <SectionSub text="Actions à prendre pour optimiser les prochains événements" />
                 {[
-                  { tag: 'Opportunité', tagBg: C.mentheLight, tagColor: C.mentheDark, text: 'Sciences & Tech domine — conférences dédiées à Lyon et Bordeaux.', why: `${branches[0]?.[1] ?? 0} étudiants intéressés (${pct(branches[0]?.[1] ?? 0, attendees.length)}%) — une demande forte non couverte sur les autres villes.` },
-                  { tag: 'Expansion', tagBg: C.piscineLight, tagColor: C.piscineDark, text: `${stands.length} stands à Paris — potentiel sur les autres villes.`, why: 'Les villes avec moins de stands mais une demande forte = opportunité d\'expansion à faible coût.' },
+                  { tag: 'Opportunité', tagBg: C.mentheLight, tagColor: C.mentheDark, text: `${branches[0]?.[0] ?? 'Filière #1'} domine — conférences dédiées sur les prochains salons.`, why: `${branches[0]?.[1] ?? 0} étudiants intéressés (${pct(branches[0]?.[1] ?? 0, attendees.length)}%) — une demande forte à couvrir sur les autres villes.` },
+                  { tag: 'Expansion', tagBg: C.piscineLight, tagColor: C.piscineDark, text: `${stands.length} stands à ${selEvent?.city ?? 'ce salon'} — potentiel sur les autres villes.`, why: 'Les villes avec moins de stands mais une demande forte = opportunité d\'expansion à faible coût.' },
                   { tag: 'Rétention', tagBg: C.citronLight, tagColor: C.citronDark, text: 'Suivre les étudiants multi-salons pour mesurer la fidélité.', why: 'Un étudiant qui revient à plusieurs salons est un lead ultra-qualifié — il compare activement.' },
                 ].map((r, i) => (
                   <div key={i} style={{ marginBottom: 14, padding: '12px 14px', background: C.g1, borderRadius: 10 }}>
@@ -1290,9 +1318,9 @@ export default function AdminDashboard() {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.4)', marginBottom: 14 }}>Prochaines actions</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                 {[
-                  { icon: '📧', text: 'Envoyer les leads qualifiés aux écoles de Paris', deadline: 'Cette semaine' },
-                  { icon: '📊', text: 'Préparer le brief pour le salon de Lyon (9 mai)', deadline: 'Avant le 5 mai' },
-                  { icon: '🎯', text: 'Optimiser le placement des stands par filière', deadline: 'Prochain salon' },
+                  { icon: '📧', text: `Envoyer les ${intentH} leads décideurs aux ${stands.length} écoles de ${selEvent?.city ?? 'ce salon'}`, deadline: 'Cette semaine' },
+                  { icon: '📊', text: `Préparer le brief pour le prochain salon${crossEvents.find(e => e.visitors === 0) ? ` (${crossEvents.find(e => e.visitors === 0)?.name})` : ''}`, deadline: 'Prochain événement' },
+                  { icon: '🎯', text: 'Optimiser le placement des stands par filière dominante', deadline: 'Prochain salon' },
                 ].map((a, i) => (
                   <div key={i} style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '18px 18px', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <div style={{ fontSize: 28, marginBottom: 10 }}>{a.icon}</div>
