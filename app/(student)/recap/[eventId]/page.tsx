@@ -130,7 +130,7 @@ export default function RecapPage({ params }: { params: Promise<{ eventId: strin
       // Load scans for this user + event
       const { data: scans } = await supabase
         .from('scans')
-        .select('id, channel, stand_id, session_id, dwell_estimate, created_at')
+        .select('id, channel, stand_id, session_id, dwell_seconds, created_at')
         .eq('user_id', user.id)
         .eq('event_id', eventId)
         .order('created_at', { ascending: true })
@@ -160,7 +160,7 @@ export default function RecapPage({ params }: { params: Promise<{ eventId: strin
             type: 'stand' as const,
             title: school ? `Stand ${school.name}` : `Stand #${r.stand_id}`,
             schoolId: r.stand_id ?? undefined,
-            detail: r.dwell_estimate ? `~${r.dwell_estimate} min` : undefined,
+            detail: r.dwell_seconds ? `~${Math.round(r.dwell_seconds / 60)} min` : undefined,
             icon: school ? (SCHOOL_ICONS[school.type] ?? '🏫') : '🏫',
             tag: 'red' as const,
           }
@@ -171,7 +171,7 @@ export default function RecapPage({ params }: { params: Promise<{ eventId: strin
             time: formatTime(r.created_at),
             type: 'conference' as const,
             title: 'Conférence',
-            detail: r.dwell_estimate ? `~${r.dwell_estimate} min` : undefined,
+            detail: r.dwell_seconds ? `~${Math.round(r.dwell_seconds / 60)} min` : undefined,
             icon: '🎤',
             tag: 'yellow' as const,
           }
@@ -201,8 +201,8 @@ export default function RecapPage({ params }: { params: Promise<{ eventId: strin
       // KPIs
       const standScans = rows.filter((r: any) => r.channel === 'stand')
       const confScans  = rows.filter((r: any) => r.channel === 'conference')
-      const totalDwell = rows.reduce((acc: number, r: any) => acc + (r.dwell_estimate ?? 0), 0)
-      setKpis({ stands: standScans.length, conferences: confScans.length, dwellMin: totalDwell })
+      const totalDwellSeconds = rows.reduce((acc: number, r: any) => acc + (r.dwell_seconds ?? 1200), 0)
+      setKpis({ stands: standScans.length, conferences: confScans.length, dwellMin: Math.round(totalDwellSeconds / 60) })
 
       // Visited schools list (for compare tab)
       const visited: VisitedSchool[] = schoolIds

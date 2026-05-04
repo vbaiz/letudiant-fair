@@ -1,19 +1,20 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import TinderCard from 'react-tinder-card';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import StripeRule from '@/components/ui/StripeRule';
-import { getSchools, upsertMatch, saveSchoolToWishlist, getSchoolFormations, saveFormationToWishlist, getAllReels, saveReelToWishlist, getSavedReels, deleteReelFromWishlist } from '@/lib/supabase/database';
+import Icon from '@/components/ui/Icon';
+import { getSchools, upsertMatch, saveSchoolToWishlist, getSchoolFormations, saveFormationToWishlist, getAllReels, saveReelToWishlist, getSavedReels, deleteReelFromWishlist, trackArticleInteraction, getArticles, getPersonalizedArticles, saveArticleToWishlist, getSavedArticles, getSavedArticlesCount } from '@/lib/supabase/database';
 import { getSupabase } from '@/lib/supabase/client';
 import { rankSchoolsForStudent } from '@/lib/supabase/schoolRanking';
 import { rankFormationsForStudent } from '@/lib/supabase/programRanking';
 import { useAuth } from '@/hooks/useAuth';
-import type { SchoolRow, FormationRow, SchoolReelRow, SavedReelRow } from '@/lib/supabase/types';
+import type { SchoolRow, FormationRow, SchoolReelRow, SavedReelRow, ArticleRow } from '@/lib/supabase/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,11 @@ interface Article {
   readingTime: string;
   published_at: string;
   tag: 'red' | 'blue' | 'yellow' | 'gray';
+  description: string;
+  url: string;
+  icon: 'briefcase' | 'flask' | 'book' | 'trend' | 'graduation' | 'building' | 'heart' | 'sparkle' | 'lock'; // Stroke-style icon names
+  size: 'normal' | 'large' | 'tall' | 'wide'; // Masonry size
+  gradientClass: string; // e.g., 'gradient-1', 'gradient-2', etc.
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -47,6 +53,15 @@ function typeVariant(type: string): 'red' | 'blue' | 'yellow' | 'gray' {
   if (type.toLowerCase().includes('ingénieur')) return 'yellow';
   if (type.toLowerCase().includes('université')) return 'blue';
   if (type.toLowerCase().includes('grande')) return 'red';
+  return 'gray';
+}
+
+// Map article category to a Tag variant
+function mapCategoryToTag(category: string): 'red' | 'blue' | 'yellow' | 'gray' {
+  const cat = category.toLowerCase();
+  if (cat.includes('admission') || cat.includes('parcoursup')) return 'red';
+  if (cat.includes('emploi') || cat.includes('stage')) return 'blue';
+  if (cat.includes('formation') || cat.includes('master') || cat.includes('école')) return 'yellow';
   return 'gray';
 }
 
@@ -273,19 +288,32 @@ function VideoModal({
   isSaved?: boolean;
   onSave?: (reelId: string, title: string) => void;
 }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   if (!reel) return null;
 
-  // Detect if URL is YouTube embed
   const isYouTube = reel.video_url.includes('youtube.com');
+
+  const handlePlay = () => {
+    setIsPlaying(true);
+    if (!isYouTube && videoRef.current) {
+      videoRef.current.play();
+    } else if (isYouTube && iframeRef.current) {
+      // For YouTube, we can't directly control play, but we hide the overlay
+      // The iframe will handle autoplay
+    }
+  };
 
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.9)',
+        background: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(6px)',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 9999,
@@ -293,122 +321,218 @@ function VideoModal({
       }}
       onClick={onClose}
     >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        style={{
-          position: 'absolute',
-          top: '20px',
-          right: '20px',
-          background: 'rgba(255, 255, 255, 0.2)',
-          border: 'none',
-          color: '#fff',
-          fontSize: '28px',
-          width: '44px',
-          height: '44px',
-          borderRadius: '50%',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 0.2s',
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)')}
-        onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)')}
-      >
-        ✕
-      </button>
-
-      {/* Save button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSave && !isSaved) {
-            onSave(reel.id, reel.title);
-          }
-        }}
-        disabled={isSaved}
-        style={{
-          position: 'absolute',
-          top: '20px',
-          right: '80px',
-          background: isSaved ? 'rgba(100, 200, 100, 0.3)' : 'rgba(100, 150, 255, 0.2)',
-          border: '1px solid ' + (isSaved ? 'rgba(100, 200, 100, 0.5)' : 'rgba(100, 150, 255, 0.5)'),
-          color: '#fff',
-          fontSize: '14px',
-          fontWeight: '600',
-          padding: '8px 14px',
-          borderRadius: '6px',
-          cursor: isSaved ? 'default' : 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'all 0.2s',
-          opacity: isSaved ? 0.7 : 1,
-        }}
-        onMouseEnter={(e) => {
-          if (!isSaved) {
-            e.currentTarget.style.background = 'rgba(100, 150, 255, 0.3)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = isSaved ? 'rgba(100, 200, 100, 0.3)' : 'rgba(100, 150, 255, 0.2)';
-        }}
-      >
-        {isSaved ? '✅ Saved' : '💾 Save'}
-      </button>
-
-      {/* Modal content */}
+      {/* Modal content - 2/3 video, 1/3 info */}
       <div
         style={{
-          background: '#000',
+          background: 'white',
           borderRadius: '12px',
           overflow: 'hidden',
-          maxWidth: '90vw',
-          maxHeight: '90vh',
-          width: '100%',
-          aspectRatio: isYouTube ? '16 / 9' : 'auto',
+          width: '90%',
+          maxWidth: '1000px',
+          height: '80vh',
+          maxHeight: '600px',
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: 'row',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Video player */}
-        {isYouTube ? (
-          <iframe
-            width="100%"
-            height="100%"
-            src={reel.video_url}
-            title={reel.title}
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            style={{ flex: 1 }}
-          />
-        ) : (
-          <video
-            width="100%"
-            height="100%"
-            controls
-            autoPlay
-            style={{ flex: 1, background: '#000' }}
-          >
-            <source src={reel.video_url} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
-        )}
-
-        {/* Video info */}
-        <div style={{ padding: '16px', background: '#000', color: '#fff', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 8px' }}>{reel.title}</h3>
-          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', margin: '0 0 8px' }}>
-            {reel.schoolName} · {reel.duration}
-          </p>
-          {reel.description && (
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', margin: 0, lineHeight: '1.5' }}>
-              {reel.description}
-            </p>
+        {/* Video Section - 2/3 */}
+        <div
+          style={{
+            flex: 2,
+            position: 'relative',
+            background: reel.thumbnail_color || '#000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Snapshot/Video Preview */}
+          {isYouTube ? (
+            <iframe
+              ref={iframeRef}
+              width="100%"
+              height="100%"
+              src={isPlaying ? reel.video_url : reel.video_url.replace('autoplay=0', 'autoplay=1')}
+              title={reel.title}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ flex: 1 }}
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              width="100%"
+              height="100%"
+              controls
+              autoPlay={isPlaying}
+              onPlay={() => setIsPlaying(true)}
+              style={{ flex: 1, background: reel.thumbnail_color || '#000' }}
+            >
+              <source src={reel.video_url} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
           )}
+
+          {/* Play overlay button - Hide when playing */}
+          {!isPlaying && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePlay();
+              }}
+              style={{
+                position: 'absolute',
+                width: 100,
+                height: 100,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.95)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                border: 'none',
+                zIndex: 10,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'white';
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.95)';
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.3)';
+              }}
+            >
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F5576C" strokeWidth="2">
+                <polygon points="5 3 19 12 5 21" />
+              </svg>
+            </button>
+          )}
+
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              background: 'rgba(0, 0, 0, 0.5)',
+              border: 'none',
+              color: 'white',
+              fontSize: '24px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              zIndex: 20,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0, 0, 0, 0.8)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)')}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Info Section - 1/3 */}
+        <div
+          style={{
+            flex: 1,
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            background: '#f9f9f9',
+            overflowY: 'auto',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#F5576C', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+              {reel.schoolName}
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3, margin: 0 }}>
+              {reel.title}
+            </h3>
+            <div style={{ display: 'flex', gap: 12, fontSize: '12px', color: '#999', flexWrap: 'wrap' }}>
+              <span>📍 {reel.schoolName}</span>
+              <span>⏱️ {reel.duration}</span>
+              <span>👁️ {reel.views}</span>
+            </div>
+            {reel.description && (
+              <p style={{ fontSize: '13px', color: '#666', lineHeight: 1.5, margin: 0 }}>
+                {reel.description}
+              </p>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePlay();
+              }}
+              style={{
+                padding: '10px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                background: '#EF4444',
+                color: 'white',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#DC2626')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#EF4444')}
+            >
+              Regarder en ligne
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onSave && !isSaved) {
+                  onSave(reel.id, reel.title);
+                }
+              }}
+              disabled={isSaved}
+              style={{
+                padding: '10px 16px',
+                borderRadius: '6px',
+                border: '2px solid #667eea',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: isSaved ? 'default' : 'pointer',
+                background: isSaved ? '#667eea' : 'rgba(102, 126, 234, 0.1)',
+                color: isSaved ? 'white' : '#667eea',
+                transition: 'all 0.2s ease',
+                opacity: isSaved ? 0.7 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isSaved) {
+                  e.currentTarget.style.background = '#667eea';
+                  e.currentTarget.style.color = 'white';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSaved) {
+                  e.currentTarget.style.background = 'rgba(102, 126, 234, 0.1)';
+                  e.currentTarget.style.color = '#667eea';
+                }
+              }}
+            >
+              {isSaved ? '✅ Enregistré' : 'Enregistrer'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -449,6 +573,152 @@ function ArticleCard({ article }: { article: Article; key?: string }) {
   );
 }
 
+// ─── Actualite Card Component (Masonry) ──────────────────────────────────────
+
+const GRADIENT_MAP: { [key: string]: string } = {
+  'gradient-1': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'gradient-2': 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  'gradient-3': 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  'gradient-4': 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  'gradient-5': 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+  'gradient-6': 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+  'gradient-7': 'linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%)',
+  'gradient-8': 'linear-gradient(135deg, #2e2e78 0%, #662d8c 100%)',
+  'gradient-9': 'linear-gradient(135deg, #eb3349 0%, #f45c43 100%)',
+  'gradient-10': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+};
+
+interface ActualiteCardProps {
+  article: Article;
+  onClick: (article: Article) => void;
+  onInteraction?: (action: 'viewed' | 'clicked') => void;
+}
+
+function ActualiteCard({ article, onClick, onInteraction }: ActualiteCardProps) {
+  const handleCardClick = () => {
+    // Track card view
+    onInteraction?.('viewed');
+    onClick(article);
+  };
+  const gradientBg = GRADIENT_MAP[article.gradientClass] || GRADIENT_MAP['gradient-1'];
+
+  const getSizeStyles = () => {
+    switch (article.size) {
+      case 'large':
+        return { gridColumn: 'span 2', gridRow: 'span 2' };
+      case 'tall':
+        return { gridRow: 'span 2' };
+      case 'wide':
+        return { gridColumn: 'span 2' };
+      default:
+        return {};
+    }
+  };
+
+  const imageHeight = article.size === 'large' || article.size === 'tall' ? 280 : 200;
+
+  return (
+    <div
+      onClick={handleCardClick}
+      style={{
+        ...getSizeStyles(),
+        background: 'white',
+        borderRadius: 12,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+        e.currentTarget.style.transform = 'translateY(-4px)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        e.currentTarget.style.transform = 'translateY(0)';
+      }}
+    >
+      {/* Image with icon */}
+      <div
+        style={{
+          width: '100%',
+          height: imageHeight,
+          background: gradientBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontSize: 48,
+        }}
+      >
+        <Icon name={article.icon} size={24} />
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <span
+          style={{
+            display: 'inline-block',
+            background: 'var(--le-red)',
+            color: 'white',
+            fontSize: 11,
+            fontWeight: 700,
+            padding: '4px 8px',
+            borderRadius: 4,
+            marginBottom: 8,
+            width: 'fit-content',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}
+        >
+          {article.rubrique}
+        </span>
+
+        <h3
+          style={{
+            fontSize: article.size === 'large' ? 18 : 14,
+            fontWeight: 700,
+            color: '#1a1a1a',
+            marginBottom: 8,
+            lineHeight: 1.4,
+            flex: 1,
+          }}
+        >
+          {article.title}
+        </h3>
+
+        {(article.size === 'large') && (
+          <p
+            style={{
+              fontSize: 12,
+              color: '#666',
+              lineHeight: 1.4,
+              marginBottom: 12,
+            }}
+          >
+            {article.description}
+          </p>
+        )}
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: 12,
+            color: '#999',
+          }}
+        >
+          <span>⏱️ {article.readingTime}</span>
+          <span style={{ color: 'var(--le-red)', fontWeight: 700 }}>Lire plus →</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type FormationWithSchool = FormationRow & {
@@ -477,7 +747,64 @@ export default function DiscoverPage() {
   const [reels, setReels] = useState<Reel[]>([]); // Load from getAllReels()
   const [playingReelId, setPlayingReelId] = useState<string | null>(null); // Track which reel is playing
   const [savedReelIds, setSavedReelIds] = useState<Set<string>>(new Set()); // Track saved reels by ID
-  const articles: Article[] = []; // TODO: Implement articles once table is wired
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null); // For article preview modal
+  const [articleViewStartTime, setArticleViewStartTime] = useState<number | null>(null); // Track time spent reading
+  const [articles, setArticles] = useState<Article[]>([]); // Load from DB
+  const [loadingArticles, setLoadingArticles] = useState(true);
+  const [savedArticleIds, setSavedArticleIds] = useState<Set<string>>(new Set()); // Track saved articles by ID
+  const [savedArticlesCount, setSavedArticlesCount] = useState<number>(0); // Counter for saved articles badge
+
+  // Handle article interaction tracking
+  const handleArticleInteraction = async (action: 'viewed' | 'clicked' | 'shared', articleId: string) => {
+    if (!user?.id) return;
+
+    try {
+      let metadata: any = {};
+
+      if (action === 'clicked') {
+        // Track time spent before clicking external link
+        if (articleViewStartTime) {
+          const timeSpent = Math.floor((Date.now() - articleViewStartTime) / 1000);
+          metadata.timeSpentSeconds = Math.min(timeSpent, 600); // Cap at 10 minutes
+          metadata.clickedExternalLink = true;
+        }
+      } else if (action === 'viewed') {
+        // Start tracking time when opening modal
+        setArticleViewStartTime(Date.now());
+      }
+
+      await trackArticleInteraction(user.id, articleId, action, metadata);
+    } catch (err) {
+      console.error('Failed to track article interaction:', err);
+      // Don't show error to user - analytics shouldn't break the app
+    }
+  };
+
+  // Handle saving an article to wishlist
+  const handleSaveArticle = async (articleId: string, articleTitle: string) => {
+    if (!user?.id) {
+      showToast('❌ Vous devez être connecté pour enregistrer un article');
+      return;
+    }
+
+    try {
+      const result = await saveArticleToWishlist(user.id, articleId);
+
+      if (result.alreadySaved) {
+        showToast('✅ Article déjà sauvegardé');
+      } else {
+        // Update state
+        setSavedArticleIds(prev => new Set(prev).add(articleId));
+        setSavedArticlesCount(prev => prev + 1);
+        showToast('✅ Article enregistré');
+      }
+    } catch (err) {
+      console.error('Failed to save article:', err);
+      showToast('❌ Erreur lors de la sauvegarde');
+    }
+  };
+
+  // Sample articles - Top 10 personalized for student profile
 
   // ── Sync activeTab with URL searchParams ───────────────────────────────────────
   useEffect(() => {
@@ -668,6 +995,92 @@ export default function DiscoverPage() {
     loadReels();
   }, []);
 
+  // ── Load articles from Supabase ─────────────────────────────────────────
+  useEffect(() => {
+    const loadArticles = async () => {
+      try {
+        setLoadingArticles(true);
+
+        let articleData;
+        if (user?.id) {
+          // Get personalized articles based on student profile
+          articleData = await getPersonalizedArticles(user.id, 10);
+        } else {
+          // Get all non-expired articles
+          articleData = await getArticles(10);
+        }
+
+        // Transform ArticleRow to Article format for display
+        const transformedArticles: Article[] = articleData.map((row: ArticleRow) => ({
+          id: row.id,
+          title: row.title,
+          rubrique: row.rubrique,
+          readingTime: row.reading_time_minutes ? `${row.reading_time_minutes} min` : '3 min',
+          published_at: row.published_at ? new Date(row.published_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          tag: mapCategoryToTag(row.category),
+          description: row.description || '',
+          url: row.external_url,
+          icon: row.icon,
+          size: row.size as 'normal' | 'large' | 'tall' | 'wide',
+          gradientClass: row.gradient_class,
+        }));
+
+        setArticles(transformedArticles);
+      } catch (err) {
+        console.error('Failed to load articles:', err);
+        setArticles([]);
+      } finally {
+        setLoadingArticles(false);
+      }
+    };
+
+    loadArticles();
+  }, [user?.id]);
+
+  // Load saved articles on mount
+  useEffect(() => {
+    const loadSavedArticles = async () => {
+      if (!user?.id) {
+        setSavedArticleIds(new Set());
+        setSavedArticlesCount(0);
+        return;
+      }
+
+      try {
+        const count = await getSavedArticlesCount(user.id);
+        setSavedArticlesCount(count);
+
+        const saved = await getSavedArticles(user.id);
+        const savedIds = new Set(saved.map(article => article.id));
+        setSavedArticleIds(savedIds);
+      } catch (err) {
+        console.error('Failed to load saved articles:', err);
+      }
+    };
+
+    loadSavedArticles();
+  }, [user?.id]);
+
+  // Load saved reels on mount
+  useEffect(() => {
+    const loadSavedReels = async () => {
+      if (!user?.id) {
+        setSavedReelIds(new Set());
+        return;
+      }
+
+      try {
+        const saved = await getSavedReels(user.id);
+        const savedIds = new Set(saved.map(reel => reel.id));
+        setSavedReelIds(savedIds);
+      } catch (err) {
+        console.error('Failed to load saved reels:', err);
+      }
+    };
+
+    loadSavedReels();
+  }, [user?.id]);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
@@ -803,10 +1216,44 @@ export default function DiscoverPage() {
     }
   };
 
-  const TABS: { id: TabId; label: string }[] = [
-    { id: 'swipe', label: 'Swipe 🃏' },
-    { id: 'reels', label: 'Reels 🎬' },
-    { id: 'actualites', label: 'Actualités 📰' },
+  const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'swipe',
+      label: 'SWIPE',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M6 9h12M6 9l-3 3m3-3l3 3M18 15H6m12 0l3-3m-3 3l-3-3" />
+        </svg>
+      ),
+    },
+    {
+      id: 'reels',
+      label: 'REELS',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+          <line x1="7" y1="2" x2="7" y2="22" />
+          <line x1="17" y1="2" x2="17" y2="22" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <line x1="2" y1="7" x2="7" y2="7" />
+          <line x1="2" y1="17" x2="7" y2="17" />
+          <line x1="17" y1="17" x2="22" y2="17" />
+          <line x1="17" y1="7" x2="22" y2="7" />
+        </svg>
+      ),
+    },
+    {
+      id: 'actualites',
+      label: 'ACTUALITÉS',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <line x1="7" y1="7" x2="17" y2="7" />
+          <line x1="7" y1="11" x2="17" y2="11" />
+          <line x1="7" y1="15" x2="17" y2="15" />
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -910,7 +1357,40 @@ export default function DiscoverPage() {
                 (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
               }}
             >
-              🎥 {savedReelIds.size} {savedReelIds.size === 1 ? 'reel sauvegardé' : 'reels sauvegardés'}
+              {savedReelIds.size} {savedReelIds.size === 1 ? 'reel sauvegardé' : 'reels sauvegardés'}
+            </button>
+          )}
+          {activeTab === 'actualites' && savedArticlesCount > 0 && (
+            <button
+              onClick={() => router.push('/saved?tab=liens&subtab=actualites')}
+              style={{
+                background: 'var(--le-red)',
+                color: '#fff',
+                borderRadius: 20,
+                padding: '8px 16px',
+                fontSize: 14,
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                border: 'none',
+                fontFamily: 'inherit',
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'var(--le-red-dark)';
+                (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'var(--le-red)';
+                (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+              }}
+            >
+              {savedArticlesCount} {savedArticlesCount === 1 ? 'article enregistré' : 'articles enregistrés'}
             </button>
           )}
         </div>
@@ -924,17 +1404,22 @@ export default function DiscoverPage() {
               style={{
                 flex: 1,
                 padding: '10px 8px',
-                fontSize: 13,
-                fontWeight: 600,
+                fontSize: 12,
+                fontWeight: 700,
                 color: activeTab === tab.id ? 'var(--le-red)' : 'var(--le-gray-500)',
                 background: 'none',
                 border: 'none',
                 borderBottom: activeTab === tab.id ? '2px solid var(--le-red)' : '2px solid transparent',
                 cursor: 'pointer',
-                transition: 'color 0.15s ease',
+                transition: 'all 0.15s ease',
                 whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
               }}
             >
+              <span style={{ color: 'currentColor' }}>{tab.icon}</span>
               {tab.label}
             </button>
           ))}
@@ -1239,7 +1724,7 @@ export default function DiscoverPage() {
 
       {/* ── Reels tab ── */}
       {activeTab === 'reels' && (
-        <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ padding: '24px 16px 0', display: 'flex', flexDirection: 'column', gap: 24 }}>
           {reels.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--le-gray-500)' }}>
               <span style={{ fontSize: 44, display: 'block', marginBottom: 12 }}>🎬</span>
@@ -1252,72 +1737,334 @@ export default function DiscoverPage() {
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p style={{ fontSize: 12, color: 'var(--le-gray-500)', margin: 0 }}>
-                  {reels.length} vidéos disponibles
-                </p>
-                <span
-                  style={{
-                    background: 'var(--le-red-light)',
-                    color: 'var(--le-red-dark)',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: '3px 8px',
-                    borderRadius: 20,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Direct du salon
-                </span>
+              {/* Featured Section */}
+              <div style={{ maxWidth: '500px', margin: '0 auto', width: '100%' }}>
+                {reels.length > 0 && (
+                  <div
+                    onClick={() => setPlayingReelId(reels[0].id)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <ReelCard key={reels[0].id} reel={reels[0]} onPlay={() => setPlayingReelId(reels[0].id)} />
+                  </div>
+                )}
               </div>
-              {reels.map((reel) => (
-                <ReelCard key={reel.id} reel={reel} onPlay={(r) => setPlayingReelId(r.id)} />
-              ))}
-              <p className="le-caption" style={{ textAlign: 'center', paddingBottom: 16 }}>
-                Nouvelles vidéos ajoutées chaque semaine
-              </p>
+
+              {/* Queue Section */}
+              {reels.length > 1 && (
+                <div style={{ marginTop: 16 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', textAlign: 'center', marginBottom: 16, margin: '0 0 16px' }}>
+                    Suivants pour vous
+                  </h3>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                      gap: 16,
+                      paddingBottom: 24,
+                    }}
+                  >
+                    {reels.slice(1).map((reel) => (
+                      <div
+                        key={reel.id}
+                        onClick={() => setPlayingReelId(reel.id)}
+                        style={{
+                          background: 'white',
+                          borderRadius: 12,
+                          overflow: 'hidden',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.12)';
+                          e.currentTarget.style.transform = 'translateY(-4px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        {/* Thumbnail */}
+                        <div
+                          style={{
+                            width: '100%',
+                            aspectRatio: '16 / 9',
+                            background: reel.thumbnail_color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2">
+                            <polygon points="5,3 19,12 5,21" />
+                          </svg>
+                          <div
+                            style={{
+                              position: 'absolute',
+                              bottom: 10,
+                              right: 12,
+                              background: 'rgba(0,0,0,0.55)',
+                              color: '#fff',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                            }}
+                          >
+                            {reel.duration}
+                          </div>
+                        </div>
+
+                        {/* Info */}
+                        <div style={{ padding: 12 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#667eea', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
+                            {reel.schoolName}
+                          </div>
+                          <h4 style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', lineHeight: 1.3, margin: '4px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {reel.title}
+                          </h4>
+                          <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#999', marginTop: 4 }}>
+                            <span>📍 {reel.schoolName}</span>
+                            <span>⏱️ {reel.duration}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
       )}
 
+      {/* Video Modal */}
+      {playingReelId && (
+        <VideoModal
+          reel={reels.find(r => r.id === playingReelId) || null}
+          onClose={() => setPlayingReelId(null)}
+          isSaved={savedReelIds.has(playingReelId)}
+          onSave={handleSaveReel}
+        />
+      )}
+
       {/* ── Actualités tab ── */}
       {activeTab === 'actualites' && (
-        <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {articles.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--le-gray-500)' }}>
-              <span style={{ fontSize: 44, display: 'block', marginBottom: 12 }}>📰</span>
-              <p style={{ fontSize: 15, fontWeight: 600, margin: '0 0 6px', color: 'var(--le-gray-700)' }}>
-                Aucune actualité pour l&apos;instant
-              </p>
-              <p className="le-caption" style={{ margin: 0 }}>
-                Les articles publiés par la rédaction de L&apos;Étudiant apparaîtront ici.
-              </p>
+        <div style={{ padding: '24px 16px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ marginBottom: 40, position: 'relative' }}>
+            <h2 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a1a', margin: '0 0 8px 0' }}>
+              Actualités
+            </h2>
+            <p style={{ color: '#666', fontSize: 14, margin: 0 }}>
+              Les 10 meilleures actualités pour votre profil, mises à jour chaque semaine
+            </p>
+          </div>
+
+          {/* Info box */}
+          <div
+            style={{
+              background: '#E6F0FF',
+              borderLeft: '4px solid #0066CC',
+              padding: 16,
+              borderRadius: 8,
+              marginBottom: 24,
+              fontSize: 13,
+              color: '#003C8F',
+            }}
+          >
+            <strong style={{ display: 'block', marginBottom: 4 }}>✨ Personnalisé pour vous</strong>
+            Basé sur vos formations d'intérêt, votre localisation et vos domaines d'étude. Les articles proviennent directement de L'Étudiant.
+          </div>
+
+          {/* Masonry Grid */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 24,
+            }}
+          >
+            {articles.map((article) => (
+              <ActualiteCard
+                key={article.id}
+                article={article}
+                onClick={(article) => setSelectedArticle(article)}
+                onInteraction={(action) => handleArticleInteraction(action, article.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Article Preview Modal */}
+      {selectedArticle && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            setSelectedArticle(null);
+            setArticleViewStartTime(null);
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: 16,
+              maxWidth: 600,
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              animation: 'slideUp 0.3s ease',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                position: 'relative',
+                height: 250,
+                background: GRADIENT_MAP[selectedArticle.gradientClass] || GRADIENT_MAP['gradient-1'],
+                display: 'flex',
+                alignItems: 'flex-end',
+                padding: 24,
+              }}
+            >
+              <button
+                onClick={() => setSelectedArticle(null)}
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  width: 40,
+                  height: 40,
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  color: 'white',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+                }}
+              >
+                ✕
+              </button>
+
+              {/* Save Article Button */}
+              <button
+                onClick={() => handleSaveArticle(selectedArticle.id, selectedArticle.title)}
+                disabled={savedArticleIds.has(selectedArticle.id)}
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 64,
+                  padding: '8px 16px',
+                  background: savedArticleIds.has(selectedArticle.id) ? 'rgba(34, 197, 94, 0.3)' : 'rgba(59, 130, 246, 0.3)',
+                  border: `2px solid ${savedArticleIds.has(selectedArticle.id) ? '#22c55e' : '#3b82f6'}`,
+                  borderRadius: 8,
+                  color: 'white',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: savedArticleIds.has(selectedArticle.id) ? 'default' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: savedArticleIds.has(selectedArticle.id) ? 0.8 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!savedArticleIds.has(selectedArticle.id)) {
+                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!savedArticleIds.has(selectedArticle.id)) {
+                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.3)';
+                  }
+                }}
+              >
+                {savedArticleIds.has(selectedArticle.id) ? '✅ Sauvegardé' : 'Enregistrer'}
+              </button>
+
+              <h2 style={{ color: 'white', fontSize: 24, fontWeight: 700, lineHeight: 1.3, margin: 0 }}>
+                {selectedArticle.title}
+              </h2>
             </div>
-          ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                <p style={{ fontSize: 12, color: 'var(--le-gray-500)', margin: 0 }}>
-                  {articles.length} articles récents
-                </p>
-                <a
-                  href="#"
-                  style={{ fontSize: 12, fontWeight: 700, color: 'var(--le-red)', textDecoration: 'none' }}
-                >
-                  Voir tout →
-                </a>
-              </div>
-              {articles.map((article) => (
-                <ArticleCard key={article.id} article={article} />
-              ))}
-              <div style={{ paddingBottom: 16 }}>
-                <Button variant="secondary" style={{ width: '100%', justifyContent: 'center' }}>
-                  Charger plus d&apos;articles
-                </Button>
-              </div>
-            </>
-          )}
+
+            {/* Modal Body */}
+            <div style={{ padding: 24 }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  background: 'var(--le-red)',
+                  color: 'white',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  marginBottom: 12,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {selectedArticle.rubrique}
+              </span>
+              <p
+                style={{
+                  fontSize: 14,
+                  color: '#333',
+                  lineHeight: 1.6,
+                  marginBottom: 16,
+                }}
+              >
+                {selectedArticle.description || 'Découvrez cet article intéressant sur L\'Étudiant. Cliquez sur le bouton ci-dessous pour accéder au contenu détaillé.'}
+              </p>
+              <a
+                href={selectedArticle.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => handleArticleInteraction('clicked', selectedArticle.id)}
+                style={{
+                  display: 'inline-block',
+                  background: 'var(--le-red)',
+                  color: 'white',
+                  padding: '12px 24px',
+                  borderRadius: 6,
+                  textDecoration: 'none',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  transition: 'all 0.2s',
+                  marginTop: 8,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#C41520';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--le-red)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                Lire l'article complet sur L'Étudiant →
+              </a>
+            </div>
+          </div>
         </div>
       )}
 

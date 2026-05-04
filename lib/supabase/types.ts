@@ -66,7 +66,6 @@ export type EventRow = {
   venue_map: string | null
   address: string | null
   description: string | null
-  is_virtual: boolean
   is_active: boolean
   entry_qr: string | null
   exit_qr: string | null
@@ -147,12 +146,30 @@ export type SavedReelRow = {
   created_at: string
 }
 
+export type SavedArticleRow = {
+  id: string
+  user_id: string
+  article_id: string
+  saved_at: string
+  created_at: string
+}
+
+export type ArticleAnalyticsRow = {
+  id: string
+  student_id: string
+  article_id: string
+  action: 'viewed' | 'clicked' | 'shared' | 'time_spent'
+  time_spent_seconds: number | null
+  clicked_external_link: boolean
+  shared_to: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type StandRow = {
   id: string
   event_id: string
   school_id: string
-  location_x: number
-  location_y: number
   category: string
   created_at: string
 }
@@ -176,7 +193,7 @@ export type ScanRow = {
   stand_id: string | null
   session_id: string | null
   channel: 'entry' | 'stand' | 'conference' | 'exit'
-  dwell_estimate: number | null
+  dwell_seconds: number | null
   created_at: string
 }
 
@@ -201,9 +218,7 @@ export type LeadRow = {
   education_branches: string[]
   study_wishes: string[]
   stands_visited: string[]
-  confs_attended: string[]
-  appointment_booked: boolean  // pre-fair appointment = strongest intent signal
-  swipe_result: boolean
+  appointment_booked: boolean
   score_value: number
   score_tier: 'exploring' | 'comparing' | 'deciding'
   score_computed_at: string
@@ -244,6 +259,26 @@ export type SavedItemRow = {
   file_size: string | null
   meta: Json | null
   created_at: string
+}
+
+export type ArticleRow = {
+  id: string
+  title: string
+  description: string | null
+  rubrique: string
+  reading_time_minutes: number | null
+  published_at: string | null
+  external_url: string
+  external_source: 'letudiant' | 'exposant'
+  icon: string
+  gradient_class: string
+  size: 'normal' | 'large' | 'tall' | 'wide'
+  category: string
+  is_featured: boolean
+  expires_at: string | null
+  view_count: number
+  created_at: string
+  updated_at: string
 }
 
 // ─── Database type (references flat row types, no circular refs) ──────────────
@@ -341,6 +376,24 @@ export type Database = {
         Row: SavedReelRow
         Insert: Partial<SavedReelRow> & { user_id: string; reel_id: string }
         Update: Partial<SavedReelRow>
+        Relationships: []
+      }
+      article_analytics: {
+        Row: ArticleAnalyticsRow
+        Insert: Partial<ArticleAnalyticsRow> & { student_id: string; article_id: string; action: string }
+        Update: Partial<ArticleAnalyticsRow>
+        Relationships: []
+      }
+      articles: {
+        Row: ArticleRow
+        Insert: Partial<ArticleRow> & { id: string; title: string; external_url: string; external_source: string }
+        Update: Partial<ArticleRow>
+        Relationships: []
+      }
+      user_saved_articles: {
+        Row: SavedArticleRow
+        Insert: Partial<SavedArticleRow> & { user_id: string; article_id: string }
+        Update: Partial<SavedArticleRow>
         Relationships: []
       }
     }

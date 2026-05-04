@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L'Étudiant Fair — Data Architecture</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3e;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent: #6366f1;
+
+    --c-user:    #3b82f6;
+    --c-school:  #10b981;
+    --c-event:   #f59e0b;
+    --c-behavior:#ec4899;
+    --c-lead:    #8b5cf6;
+    --c-content: #14b8a6;
+    --c-group:   #f97316;
+    --c-booth:   #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── Layout ── */
+  .shell { display: flex; height: 100vh; overflow: hidden; }
+  nav { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; gap: 4px; overflow-y: auto; }
+  nav h1 { font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; padding: 0 20px 16px; }
+  nav button { background: none; border: none; color: var(--muted); font-size: 13px; text-align: left; padding: 8px 20px; cursor: pointer; border-left: 3px solid transparent; transition: all .15s; }
+  nav button:hover { color: var(--text); background: rgba(99,102,241,.07); }
+  nav button.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,.1); }
+  nav .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding: 16px 20px 4px; }
+  main { flex: 1; overflow-y: auto; padding: 32px; }
+
+  /* ── Headers ── */
+  .page-header { margin-bottom: 28px; }
+  .page-header h2 { font-size: 22px; font-weight: 700; color: var(--text); }
+  .page-header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Tab view ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Entity Grid ── */
+  .entity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .entity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: transform .15s, box-shadow .15s; }
+  .entity-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .card-header { padding: 14px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+  .card-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .card-title { font-size: 14px; font-weight: 700; }
+  .card-subtitle { font-size: 11px; color: var(--muted); }
+  .field-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .field-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
+  .field-name { color: var(--text); font-weight: 500; min-width: 140px; }
+  .field-type { color: var(--muted); font-family: monospace; font-size: 11px; }
+  .field-tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(99,102,241,.15); color: var(--accent); }
+  .tag-pk { background: rgba(245,158,11,.15); color: #f59e0b; }
+  .tag-fk { background: rgba(16,185,129,.12); color: #10b981; }
+  .tag-gdpr { background: rgba(236,72,153,.12); color: #ec4899; }
+
+  /* ── Flow diagram ── */
+  .flow-section { margin-bottom: 40px; }
+  .flow-section h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: var(--text); display: flex; align-items: center; gap-8px; }
+  .flow-section h3 span { display: inline-block; width: 6px; height: 18px; border-radius: 3px; background: var(--accent); margin-right: 10px; }
+  .flow-row { display: flex; align-items: center; gap: 0; overflow-x: auto; padding-bottom: 8px; }
+  .flow-node { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; font-size: 12px; white-space: nowrap; text-align: center; flex-shrink: 0; }
+  .flow-node .label { font-weight: 700; font-size: 13px; }
+  .flow-node .sub { color: var(--muted); font-size: 10px; margin-top: 2px; }
+  .flow-arrow { padding: 0 6px; color: var(--muted); font-size: 18px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .flow-arrow .arw-label { font-size: 9px; color: var(--muted); white-space: nowrap; }
+  .flow-node.node-user { border-color: var(--c-user); }
+  .flow-node.node-school { border-color: var(--c-school); }
+  .flow-node.node-event { border-color: var(--c-event); }
+  .flow-node.node-behavior { border-color: var(--c-behavior); }
+  .flow-node.node-lead { border-color: var(--c-lead); }
+  .flow-node.node-algo { border-color: var(--accent); background: rgba(99,102,241,.08); }
+  .flow-node.node-api { border-color: #475569; background: rgba(71,85,105,.1); }
+  .flow-node.node-booth { border-color: var(--c-booth); }
+  .flow-node.node-content { border-color: var(--c-content); }
+
+  /* ── Roles table ── */
+  .roles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .role-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .role-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .role-card .role-desc { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .access-item { font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .access-item:last-child { border-bottom: none; }
+  .access-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+  .badge-rw { background: rgba(16,185,129,.15); color: #10b981; }
+  .badge-ro { background: rgba(99,102,241,.15); color: #818cf8; }
+  .badge-agg { background: rgba(245,158,11,.15); color: #f59e0b; }
+  .badge-none { background: rgba(100,116,139,.15); color: var(--muted); }
+
+  /* ── Scoring ── */
+  .score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .score-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .score-card .score-file { font-size: 11px; color: var(--accent); font-family: monospace; margin-bottom: 12px; }
+  .score-bar-wrap { margin: 6px 0; }
+  .score-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .score-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 3px; }
+  .score-output { margin-top: 14px; padding: 10px; background: rgba(99,102,241,.08); border-radius: 8px; font-size: 11px; color: var(--text); }
+  .score-output strong { color: var(--accent); }
+
+  /* ── API Routes ── */
+  .api-group { margin-bottom: 28px; }
+  .api-group h3 { font-size: 14px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+  .api-route { display: flex; align-items: center; gap: 12px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; font-size: 12px; }
+  .method { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; min-width: 46px; text-align: center; }
+  .get { background: rgba(16,185,129,.15); color: #10b981; }
+  .post { background: rgba(99,102,241,.15); color: #818cf8; }
+  .patch { background: rgba(245,158,11,.15); color: #f59e0b; }
+  .delete_ { background: rgba(239,68,68,.15); color: #f87171; }
+  .route-path { font-family: monospace; color: var(--text); }
+  .route-desc { color: var(--muted); margin-left: auto; font-size: 11px; }
+  .route-auth { font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+  .auth-public { background: rgba(100,116,139,.15); color: var(--muted); }
+  .auth-user { background: rgba(59,130,246,.12); color: #60a5fa; }
+  .auth-admin { background: rgba(239,68,68,.12); color: #f87171; }
+  .auth-exhibitor { background: rgba(16,185,129,.12); color: #34d399; }
+
+  /* ── Stats bar ── */
+  .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+  .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; flex: 1; min-width: 120px; }
+  .stat-box .val { font-size: 28px; font-weight: 800; color: var(--accent); }
+  .stat-box .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Legend ── */
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── Sidebar ── -->
+<nav>
+  <h1>Data Map</h1>
+  <span class="section-label">Views</span>
+  <button class="active" onclick="show('overview')">Overview</button>
+  <button onclick="show('entities')">Entities &amp; Fields</button>
+  <button onclick="show('flows')">Data Flows</button>
+  <button onclick="show('roles')">Role Access</button>
+  <button onclick="show('scoring')">Scoring Algorithms</button>
+  <button onclick="show('api')">API Routes</button>
+</nav>
+
+<!-- ── Main ── -->
+<main>
+
+<!-- ════════════ OVERVIEW ════════════ -->
+<div id="view-overview" class="view active">
+  <div class="page-header">
+    <h2>L'Étudiant Fair — Data Architecture</h2>
+    <p>Phygital education fair platform · Supabase PostgreSQL · Next.js 16 App Router</p>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box"><div class="val">18</div><div class="lbl">Database Tables</div></div>
+    <div class="stat-box"><div class="val">40+</div><div class="lbl">API Routes</div></div>
+    <div class="stat-box"><div class="val">5</div><div class="lbl">User Roles</div></div>
+    <div class="stat-box"><div class="val">3</div><div class="lbl">Scoring Engines</div></div>
+    <div class="stat-box"><div class="val">130+</div><div class="lbl">DB Helper Fns</div></div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-user)"></div>User/Auth</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-school)"></div>School/Program</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-event)"></div>Event/Venue</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-behavior)"></div>Behavior/Signal</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-lead)"></div>Lead/Match</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-content)"></div>Content</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-group)"></div>Group</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-booth)"></div>Booth/Phygital</div>
+  </div>
+
+  <!-- Relationship map -->
+  <div class="flow-section">
+    <h3><span></span>Core Relationship Map</h3>
+    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--c-user);margin-bottom:10px;">USERS (students, teachers…)</div>
+        <div style="font-size:11px;color:var(--muted);line-height:2;">
+          → has many <span style="color:var(--c-behavior)">Scans</span><br>
+          → has many <span style="color:var(--c-lead)">Matches</span><br>
+          → has many <span style="color:var(--c-lead)">Appointments</span><br>
+          → belongs to <span style="color:var(--c-group)">Group</span><br>
+          → array col: <span style="color:#e2e8f0">wishlist[]</span><br>
+          → has many <span style="color:var(--c-content)">SavedArticles, SavedReels</span><br>
+          → reconciled from <span style="color:var(--c-booth)">PreRegistration</span>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--c-school);margin-bottom:10px;">SCHOOLS (exhibitors)</div>
+        <div style="font-size:11px;color:var(--muted);line-height:2;">
+          → has many <span style="color:var(--c-school)">Formations</span><br>
+          → has many <span style="color:var(--c-event)">Stands</span> (per event)<br>
+          → has many <span style="color:var(--c-event)">Sessions</span><br>
+          → has many <span style="color:var(--c-lead)">Leads</span> (aggregate)<br>
+          → has many <span style="color:var(--c-content)">SchoolReels</span><br>
+          → has many <span style="color:var(--c-lead)">Matches</span>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--c-event);margin-bottom:10px;">EVENTS (fairs)</div>
+        <div style="font-size:11px;color:var(--muted);line-height:2;">
+          → has many <span style="color:var(--c-event)">Stands</span><br>
+          → has many <span style="color:var(--c-event)">Sessions</span><br>
+          → has many <span style="color:var(--c-behavior)">Scans</span><br>
+          → has many <span style="color:var(--c-lead)">Leads</span><br>
+          → has many <span style="color:var(--c-booth)">BoothCaptures</span><br>
+          → has many <span style="color:var(--c-booth)">PreRegistrations</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <h3><span></span>Tech Stack</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">FRAMEWORK</div>
+        <div style="font-size:12px;color:var(--text);">Next.js 16 App Router<br>React 19<br>TypeScript</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">DATABASE</div>
+        <div style="font-size:12px;color:var(--text);">Supabase (PostgreSQL)<br>RLS on all tables<br>18 core tables</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">AUTH</div>
+        <div style="font-size:12px;color:var(--text);">Supabase Auth<br>JWT + role metadata<br>OAuth (SSO)</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">STATE</div>
+        <div style="font-size:12px;color:var(--text);">No global store<br>useAuth() hook<br>fetch-on-render</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">SCHEMAS</div>
+        <div style="font-size:12px;color:var(--text);">supabase/schema.sql<br>analytics_schema.sql<br>Migration files</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">INTEGRATIONS</div>
+        <div style="font-size:12px;color:var(--text);">EventMaker webhook<br>CSV export (leads)<br>Recharts (analytics)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ ENTITIES ════════════ -->
+<div id="view-entities" class="view">
+  <div class="page-header">
+    <h2>Entities &amp; Fields</h2>
+    <p>All 18 database tables with field shapes, types, and roles</p>
+  </div>
+  <div class="legend" style="margin-bottom:16px;">
+    <div class="legend-item"><span class="field-tag tag-pk">PK</span> Primary key</div>
+    <div class="legend-item"><span class="field-tag tag-fk">FK</span> Foreign key</div>
+    <div class="legend-item"><span class="field-tag tag-gdpr">GDPR</span> Sensitive / consent-gated</div>
+  </div>
+  <div class="entity-grid">
+
+    <!-- USERS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-user)"></div>
+        <div><div class="card-title">users</div><div class="card-subtitle">Students, teachers, exhibitors, admins, parents</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">email</span><span class="field-type">text</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">name</span><span class="field-type">text</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">role</span><span class="field-type">user_role enum</span></div>
+        <div class="field-row"><span class="field-name">dob</span><span class="field-type">date</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">education_level</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">bac_series</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">postal_code</span><span class="field-type">text</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">education_branches[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">study_wishes[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">wishlist[]</span><span class="field-type">uuid[] → schools</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">orientation_score</span><span class="field-type">int</span></div>
+        <div class="field-row"><span class="field-name">orientation_stage</span><span class="field-type">enum</span></div>
+        <div class="field-row"><span class="field-name">intent_score</span><span class="field-type">int</span></div>
+        <div class="field-row"><span class="field-name">intent_level</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">is_minor</span><span class="field-type">boolean</span></div>
+        <div class="field-row"><span class="field-name">parent_approved</span><span class="field-type">boolean</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">guardian_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">group_id</span><span class="field-type">uuid → groups</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">consent_letudiant</span><span class="field-type">timestamptz</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">consent_commercial</span><span class="field-type">timestamptz</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">client_id_btoc</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">eventmaker_ids[]</span><span class="field-type">text[]</span></div>
+      </div>
+    </div>
+
+    <!-- SCHOOLS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-school)"></div>
+        <div><div class="card-title">schools</div><div class="card-subtitle">Exhibitor school profiles &amp; admission criteria</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">user_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">name</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">type</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">city</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">website</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">cover_image_url</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">reel_url</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">description</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">target_levels[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">target_fields[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">target_regions[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">bac_g_count</span><span class="field-type">int</span></div>
+        <div class="field-row"><span class="field-name">bac_t_count</span><span class="field-type">int</span></div>
+        <div class="field-row"><span class="field-name">bac_p_count</span><span class="field-type">int</span></div>
+        <div class="field-row"><span class="field-name">insertion_rate</span><span class="field-type">numeric</span></div>
+        <div class="field-row"><span class="field-name">tuition_fee</span><span class="field-type">int</span></div>
+        <div class="field-row"><span class="field-name">apprenticeship</span><span class="field-type">boolean</span></div>
+        <div class="field-row"><span class="field-name">parcoursup</span><span class="field-type">boolean</span></div>
+        <div class="field-row"><span class="field-name">scholarship_allowed</span><span class="field-type">boolean</span></div>
+      </div>
+    </div>
+
+    <!-- FORMATIONS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-school)"></div>
+        <div><div class="card-title">formations</div><div class="card-subtitle">Degree programs nested under schools</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">school_id</span><span class="field-type">uuid → schools</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">name</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">duration</span><span class="field-type">int (years)</span></div>
+        <div class="field-row"><span class="field-name">level</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">fields[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">admission_requirements</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">rncp_code</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">study_modality</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">cost</span><span class="field-type">int</span></div>
+      </div>
+    </div>
+
+    <!-- EVENTS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-event)"></div>
+        <div><div class="card-title">events</div><div class="card-subtitle">Education fair events</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">name</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">city</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">event_date</span><span class="field-type">date</span></div>
+        <div class="field-row"><span class="field-name">venue_map</span><span class="field-type">text (url)</span></div>
+        <div class="field-row"><span class="field-name">address</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">description</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">is_active</span><span class="field-type">boolean</span></div>
+        <div class="field-row"><span class="field-name">entry_qr</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">exit_qr</span><span class="field-type">text</span></div>
+      </div>
+    </div>
+
+    <!-- STANDS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-event)"></div>
+        <div><div class="card-title">stands</div><div class="card-subtitle">Physical booth locations at events</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">event_id</span><span class="field-type">uuid → events</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">school_id</span><span class="field-type">uuid → schools</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">category</span><span class="field-type">text</span></div>
+      </div>
+    </div>
+
+    <!-- SESSIONS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-event)"></div>
+        <div><div class="card-title">sessions</div><div class="card-subtitle">Conferences &amp; workshops at events</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">event_id</span><span class="field-type">uuid → events</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">title</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">speaker_school_id</span><span class="field-type">uuid → schools</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">room</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">start_time</span><span class="field-type">timestamptz</span></div>
+        <div class="field-row"><span class="field-name">end_time</span><span class="field-type">timestamptz</span></div>
+        <div class="field-row"><span class="field-name">description</span><span class="field-type">text</span></div>
+      </div>
+    </div>
+
+    <!-- SCANS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-behavior)"></div>
+        <div><div class="card-title">scans</div><div class="card-subtitle">QR scan behavior signals</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">user_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">event_id</span><span class="field-type">uuid → events</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">stand_id</span><span class="field-type">uuid → stands</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">session_id</span><span class="field-type">uuid → sessions</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">channel</span><span class="field-type">scan_channel enum</span></div>
+        <div class="field-row"><span class="field-name">dwell_seconds</span><span class="field-type">int (seconds, max 1200)</span></div>
+        <div class="field-row"><span class="field-name">created_at</span><span class="field-type">timestamptz</span></div>
+      </div>
+    </div>
+
+    <!-- LEADS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-lead)"></div>
+        <div><div class="card-title">leads</div><div class="card-subtitle">Scored student leads for exhibitors (aggregate-only)</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">student_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">school_id</span><span class="field-type">uuid → schools</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">event_id</span><span class="field-type">uuid → events</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">education_level</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">education_branches[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">study_wishes[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">stands_visited[]</span><span class="field-type">uuid[] (snapshot for export)</span></div>
+        <div class="field-row"><span class="field-name">score_value</span><span class="field-type">int (0-100)</span></div>
+        <div class="field-row"><span class="field-name">score_tier</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">score_computed_at</span><span class="field-type">timestamptz</span></div>
+        <div class="field-row"><span class="field-name">exported_by</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">exported_at</span><span class="field-type">timestamptz</span></div>
+      </div>
+    </div>
+
+    <!-- MATCHES -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-lead)"></div>
+        <div><div class="card-title">matches</div><div class="card-subtitle">Student swipe preferences per school</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">student_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">school_id</span><span class="field-type">uuid → schools</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">student_swipe</span><span class="field-type">swipe_direction enum</span></div>
+        <div class="field-row"><span class="field-name">school_interest</span><span class="field-type">boolean</span></div>
+        <div class="field-row"><span class="field-name">appointment_booked</span><span class="field-type">boolean</span></div>
+      </div>
+    </div>
+
+    <!-- APPOINTMENTS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-lead)"></div>
+        <div><div class="card-title">appointments</div><div class="card-subtitle">1:1 booking between student &amp; school</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">student_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">school_id</span><span class="field-type">uuid → schools</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">event_id</span><span class="field-type">uuid → events</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">slot_time</span><span class="field-type">timestamptz</span></div>
+        <div class="field-row"><span class="field-name">slot_duration</span><span class="field-type">int (minutes)</span></div>
+        <div class="field-row"><span class="field-name">status</span><span class="field-type">pending/confirmed/attended/cancelled</span></div>
+        <div class="field-row"><span class="field-name">student_notes</span><span class="field-type">text</span></div>
+      </div>
+    </div>
+
+    <!-- GROUPS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-group)"></div>
+        <div><div class="card-title">groups</div><div class="card-subtitle">Teacher-managed student class groups</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">teacher_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">school_name</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">fair_id</span><span class="field-type">uuid → events</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">invite_link</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">invite_link_expiry</span><span class="field-type">timestamptz</span></div>
+        <div class="field-row"><span class="field-name">member_uids[]</span><span class="field-type">uuid[] → users</span><span class="field-tag tag-fk">FK</span></div>
+      </div>
+    </div>
+
+    <!-- SCHOOL REELS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-content)"></div>
+        <div><div class="card-title">school_reels</div><div class="card-subtitle">School promotional video content</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">school_id</span><span class="field-type">uuid → schools</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">title</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">description</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">video_url</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">duration_seconds</span><span class="field-type">int</span></div>
+        <div class="field-row"><span class="field-name">thumbnail_color</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">tags[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">view_count</span><span class="field-type">int</span></div>
+        <div class="field-row"><span class="field-name">published_at</span><span class="field-type">timestamptz</span></div>
+      </div>
+    </div>
+
+    <!-- SAVED REELS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-content)"></div>
+        <div><div class="card-title">saved_reels</div><div class="card-subtitle">Student reel bookmarks</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">user_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">reel_id</span><span class="field-type">uuid → school_reels</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">saved_at</span><span class="field-type">timestamptz</span></div>
+      </div>
+    </div>
+
+    <!-- ARTICLES -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-content)"></div>
+        <div><div class="card-title">articles</div><div class="card-subtitle">Editorial content (L'Étudiant + exhibitor)</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">title</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">description</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">rubrique</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">reading_time_minutes</span><span class="field-type">int</span></div>
+        <div class="field-row"><span class="field-name">published_at</span><span class="field-type">timestamptz</span></div>
+        <div class="field-row"><span class="field-name">external_url</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">external_source</span><span class="field-type">letudiant / exposant</span></div>
+        <div class="field-row"><span class="field-name">icon</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">is_featured</span><span class="field-type">boolean</span></div>
+        <div class="field-row"><span class="field-name">expires_at</span><span class="field-type">timestamptz</span></div>
+        <div class="field-row"><span class="field-name">view_count</span><span class="field-type">int</span></div>
+      </div>
+    </div>
+
+    <!-- SAVED ARTICLES -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-content)"></div>
+        <div><div class="card-title">saved_articles</div><div class="card-subtitle">Student article bookmarks</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">user_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">article_id</span><span class="field-type">uuid → articles</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">saved_at</span><span class="field-type">timestamptz</span></div>
+      </div>
+    </div>
+
+    <!-- PRE-REGISTRATIONS -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-booth)"></div>
+        <div><div class="card-title">pre_registrations</div><div class="card-subtitle">EventMaker webhook inbound data</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">email</span><span class="field-type">text</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">first_name</span><span class="field-type">text</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">last_name</span><span class="field-type">text</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">education_level</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">bac_series</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">postal_code</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">declared_domains[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">event_id</span><span class="field-type">uuid → events</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">eventmaker_registration_id</span><span class="field-type">text</span></div>
+        <div class="field-row"><span class="field-name">registered_at</span><span class="field-type">timestamptz</span></div>
+        <div class="field-row"><span class="field-name">resolved_user_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">resolved_at</span><span class="field-type">timestamptz</span></div>
+      </div>
+    </div>
+
+    <!-- BOOTH CAPTURES -->
+    <div class="entity-card">
+      <div class="card-header">
+        <div class="card-dot" style="background:var(--c-booth)"></div>
+        <div><div class="card-title">booth_captures</div><div class="card-subtitle">Phygital non-user visitor captures</div></div>
+      </div>
+      <div class="field-list">
+        <div class="field-row"><span class="field-name">id</span><span class="field-type">uuid</span><span class="field-tag tag-pk">PK</span></div>
+        <div class="field-row"><span class="field-name">event_id</span><span class="field-type">uuid → events</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">stand_id</span><span class="field-type">uuid → stands</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">orientation_stage</span><span class="field-type">enum</span></div>
+        <div class="field-row"><span class="field-name">education_level[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">education_branches[]</span><span class="field-type">text[]</span></div>
+        <div class="field-row"><span class="field-name">email</span><span class="field-type">text</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">phone</span><span class="field-type">text</span><span class="field-tag tag-gdpr">GDPR</span></div>
+        <div class="field-row"><span class="field-name">optin_contact</span><span class="field-type">boolean</span></div>
+        <div class="field-row"><span class="field-name">captured_by_staff</span><span class="field-type">boolean</span></div>
+        <div class="field-row"><span class="field-name">captured_by_user_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+        <div class="field-row"><span class="field-name">source</span><span class="field-type">score_booth / school_booth</span></div>
+        <div class="field-row"><span class="field-name">synced_to_user_id</span><span class="field-type">uuid → users</span><span class="field-tag tag-fk">FK</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════ FLOWS ════════════ -->
+<div id="view-flows" class="view">
+  <div class="page-header">
+    <h2>Data Flows</h2>
+    <p>How data moves through the system for each key journey</p>
+  </div>
+
+  <div class="flow-section">
+    <h3><span></span>1 — Student Registration &amp; Onboarding</h3>
+    <div class="flow-row">
+      <div class="flow-node node-booth"><div class="label">EventMaker</div><div class="sub">external reg form</div></div>
+      <div class="flow-arrow">→<div class="arw-label">webhook POST</div></div>
+      <div class="flow-node node-api"><div class="label">/api/webhooks/eventmaker</div><div class="sub">inbound handler</div></div>
+      <div class="flow-arrow">→<div class="arw-label">insert</div></div>
+      <div class="flow-node node-booth"><div class="label">pre_registrations</div><div class="sub">table</div></div>
+      <div class="flow-arrow">→<div class="arw-label">user signs up</div></div>
+      <div class="flow-node node-api"><div class="label">/api/auth/register</div><div class="sub">email match</div></div>
+      <div class="flow-arrow">→<div class="arw-label">reconcile</div></div>
+      <div class="flow-node node-user"><div class="label">users</div><div class="sub">resolved_user_id set</div></div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <h3><span></span>2 — Student Fair Day Journey (QR Scans)</h3>
+    <div class="flow-row">
+      <div class="flow-node node-user"><div class="label">Student</div><div class="sub">scans QR code</div></div>
+      <div class="flow-arrow">→<div class="arw-label">POST</div></div>
+      <div class="flow-node node-api"><div class="label">/api/events/[id]/scan-qr</div><div class="sub">channel: entry/stand/conf/exit</div></div>
+      <div class="flow-arrow">→<div class="arw-label">insert</div></div>
+      <div class="flow-node node-behavior"><div class="label">scans</div><div class="sub">dwell_estimate, channel</div></div>
+      <div class="flow-arrow">→<div class="arw-label">triggers</div></div>
+      <div class="flow-node node-algo"><div class="label">intentScore()</div><div class="sub">lib/scoring/intentScore.ts</div></div>
+      <div class="flow-arrow">→<div class="arw-label">update</div></div>
+      <div class="flow-node node-user"><div class="label">users</div><div class="sub">intent_score, intent_level</div></div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <h3><span></span>3 — School Discovery &amp; Swipe</h3>
+    <div class="flow-row">
+      <div class="flow-node node-user"><div class="label">Student Profile</div><div class="sub">branches, wishes, level</div></div>
+      <div class="flow-arrow">→<div class="arw-label">input</div></div>
+      <div class="flow-node node-algo"><div class="label">rankSchoolsForStudent()</div><div class="sub">lib/supabase/schoolRanking.ts</div></div>
+      <div class="flow-arrow">→<div class="arw-label">ranked list</div></div>
+      <div class="flow-node node-school"><div class="label">schools[]</div><div class="sub">sorted by fit score</div></div>
+      <div class="flow-arrow">→<div class="arw-label">student swipes</div></div>
+      <div class="flow-node node-lead"><div class="label">matches</div><div class="sub">student_swipe: right/left</div></div>
+      <div class="flow-arrow">→<div class="arw-label">feeds</div></div>
+      <div class="flow-node node-algo"><div class="label">leadScore()</div><div class="sub">behavioral signal</div></div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <h3><span></span>4 — Lead Scoring Pipeline</h3>
+    <div class="flow-row">
+      <div class="flow-node node-behavior"><div class="label">scans</div><div class="sub">stand visits, confs</div></div>
+      <div class="flow-arrow">+</div>
+      <div class="flow-node node-lead"><div class="label">matches</div><div class="sub">swipe direction</div></div>
+      <div class="flow-arrow">+</div>
+      <div class="flow-node node-lead"><div class="label">appointments</div><div class="sub">booking status</div></div>
+      <div class="flow-arrow">→<div class="arw-label">POST /api/leads/compute</div></div>
+      <div class="flow-node node-algo"><div class="label">computeLeadScore()</div><div class="sub">declarative 50% + behavioral 50%</div></div>
+      <div class="flow-arrow">→<div class="arw-label">upsert</div></div>
+      <div class="flow-node node-lead"><div class="label">leads</div><div class="sub">score_value 0-100, tier</div></div>
+      <div class="flow-arrow">→<div class="arw-label">exhibitor sees</div></div>
+      <div class="flow-node node-school"><div class="label">Exhibitor Dashboard</div><div class="sub">aggregate only (GDPR)</div></div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <h3><span></span>5 — Phygital Booth Capture</h3>
+    <div class="flow-row">
+      <div class="flow-node node-booth"><div class="label">Staff Tablet</div><div class="sub">no app account needed</div></div>
+      <div class="flow-arrow">→<div class="arw-label">POST</div></div>
+      <div class="flow-node node-api"><div class="label">/api/booth/capture-orientation</div><div class="sub">staff entry</div></div>
+      <div class="flow-arrow">→<div class="arw-label">insert</div></div>
+      <div class="flow-node node-booth"><div class="label">booth_captures</div><div class="sub">email, phone, optin</div></div>
+      <div class="flow-arrow">→<div class="arw-label">email match</div></div>
+      <div class="flow-node node-user"><div class="label">users</div><div class="sub">synced_to_user_id</div></div>
+    </div>
+    <div style="margin-top:10px;" class="flow-row">
+      <div class="flow-node node-booth"><div class="label">Score Kiosk</div><div class="sub">grade input (0–20)</div></div>
+      <div class="flow-arrow">→<div class="arw-label">POST</div></div>
+      <div class="flow-node node-api"><div class="label">/api/booth/recommendations</div></div>
+      <div class="flow-arrow">→<div class="arw-label">runs</div></div>
+      <div class="flow-node node-algo"><div class="label">recommendSchools()</div><div class="sub">lib/scoring/schoolRecommendation.ts</div></div>
+      <div class="flow-arrow">→<div class="arw-label">returns</div></div>
+      <div class="flow-node node-school"><div class="label">Top 3 Schools</div><div class="sub">fit_score + tier</div></div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <h3><span></span>6 — Teacher Group Flow</h3>
+    <div class="flow-row">
+      <div class="flow-node node-group" style="border-color:var(--c-group)"><div class="label">Teacher</div></div>
+      <div class="flow-arrow">→<div class="arw-label">creates</div></div>
+      <div class="flow-node" style="border-color:var(--c-group)"><div class="label">groups</div><div class="sub">invite_link + expiry</div></div>
+      <div class="flow-arrow">→<div class="arw-label">shares link</div></div>
+      <div class="flow-node node-user"><div class="label">Students</div><div class="sub">POST /api/group/join</div></div>
+      <div class="flow-arrow">→<div class="arw-label">appends</div></div>
+      <div class="flow-node" style="border-color:var(--c-group)"><div class="label">groups.member_uids[]</div></div>
+      <div class="flow-arrow">→<div class="arw-label">updates</div></div>
+      <div class="flow-node node-user"><div class="label">users.group_id</div></div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <h3><span></span>7 — Content &amp; Bookmarks</h3>
+    <div class="flow-row">
+      <div class="flow-node node-content"><div class="label">articles</div><div class="sub">letudiant + exposant</div></div>
+      <div class="flow-arrow">→<div class="arw-label">student saves</div></div>
+      <div class="flow-node node-content"><div class="label">saved_articles</div></div>
+      <div class="flow-arrow" style="margin:0 20px;color:var(--border)">|</div>
+      <div class="flow-node node-content"><div class="label">school_reels</div><div class="sub">video promos</div></div>
+      <div class="flow-arrow">→<div class="arw-label">student saves</div></div>
+      <div class="flow-node node-content"><div class="label">saved_reels</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ ROLES ════════════ -->
+<div id="view-roles" class="view">
+  <div class="page-header">
+    <h2>Role-Based Access</h2>
+    <p>What each role can read, write, or only see in aggregate (enforced by RLS)</p>
+  </div>
+  <div class="roles-grid">
+
+    <div class="role-card">
+      <h4 style="color:var(--c-user)">Student</h4>
+      <div class="role-desc">Registered fair attendee. Auth via Supabase. May be minor (guardian required).</div>
+      <div class="access-item">Own user profile <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">School catalogue <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">School reels + articles <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">Own scans / intent score <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">Own matches (swipes) <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">Own appointments <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">Saved articles + reels <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">Own group membership <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">Lead records (own) <span class="access-badge badge-none">Hidden</span></div>
+      <div class="access-item">Other students' data <span class="access-badge badge-none">No access</span></div>
+    </div>
+
+    <div class="role-card">
+      <h4 style="color:var(--c-school)">Exhibitor (School)</h4>
+      <div class="role-desc">School staff managing their booth, reels, and reviewing interest data.</div>
+      <div class="access-item">Own school profile <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">Own formations <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">Own school reels <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">Lead scores (own school) <span class="access-badge badge-agg">Aggregate only</span></div>
+      <div class="access-item">Lead distribution charts <span class="access-badge badge-agg">Aggregate only</span></div>
+      <div class="access-item">Student names / emails <span class="access-badge badge-none">Hidden (GDPR)</span></div>
+      <div class="access-item">Appointments (count only) <span class="access-badge badge-agg">Aggregate only</span></div>
+      <div class="access-item">Export leads (post-fair) <span class="access-badge badge-rw">Write (export)</span></div>
+      <div class="access-item">Other schools' data <span class="access-badge badge-none">No access</span></div>
+    </div>
+
+    <div class="role-card">
+      <h4 style="color:var(--c-group)">Teacher</h4>
+      <div class="role-desc">Creates and manages student groups for class trips to the fair.</div>
+      <div class="access-item">Own group <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">Group member list <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">Invite link generation <span class="access-badge badge-rw">Write</span></div>
+      <div class="access-item">Student profiles (own group) <span class="access-badge badge-agg">Aggregate only</span></div>
+      <div class="access-item">School catalogue <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">Student swipes/intent <span class="access-badge badge-none">No access</span></div>
+    </div>
+
+    <div class="role-card">
+      <h4 style="color:#a78bfa)">Parent / Guardian</h4>
+      <div class="role-desc">Required for minor students. Provides consent &amp; oversight.</div>
+      <div class="access-item">Ward's user profile <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">Consent approval <span class="access-badge badge-rw">Write</span></div>
+      <div class="access-item">Ward's wishlist <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">Ward's appointments <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">Other data <span class="access-badge badge-none">No access</span></div>
+    </div>
+
+    <div class="role-card">
+      <h4 style="color:#f87171">Admin</h4>
+      <div class="role-desc">Full access via service-role key. Bypasses all RLS. Platform operators.</div>
+      <div class="access-item">All tables <span class="access-badge badge-rw">Full R/W</span></div>
+      <div class="access-item">Event management <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">User administration <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">Lead export (all schools) <span class="access-badge badge-rw">R/W</span></div>
+      <div class="access-item">Scoring triggers <span class="access-badge badge-rw">Write</span></div>
+      <div class="access-item">DB seeding / repair <span class="access-badge badge-rw">Write</span></div>
+      <div class="access-item">Analytics aggregates <span class="access-badge badge-ro">Read</span></div>
+      <div class="access-item">GDPR data (all) <span class="access-badge badge-rw">Full access</span></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════ SCORING ════════════ -->
+<div id="view-scoring" class="view">
+  <div class="page-header">
+    <h2>Scoring Algorithms</h2>
+    <p>Three independent scoring engines — all in <code style="color:var(--accent)">lib/scoring/</code></p>
+  </div>
+  <div class="score-grid">
+
+    <div class="score-card">
+      <h4>Intent Score</h4>
+      <div class="score-file">lib/scoring/intentScore.ts</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Measures how engaged a student is at the fair. Updated after each behavioral signal.</p>
+
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Education level filled</span><span>20 pts</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:14%;background:var(--c-user)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Real email (not temp)</span><span>10 pts</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:7%;background:var(--c-user)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Stand QR scans (capped 30)</span><span>10 pts ea.</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:21%;background:var(--c-behavior)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Swipes right (capped 30)</span><span>15 pts ea.</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:21%;background:var(--c-behavior)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Appointment booked</span><span>25 pts</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:18%;background:var(--c-lead)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Conference attended</span><span>15 pts (once)</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:11%;background:var(--c-event)"></div></div>
+      </div>
+
+      <div class="score-output">
+        Output: <strong>score 0–140</strong><br>
+        Levels: <strong>low</strong> (0–30) · <strong>medium</strong> (31–65) · <strong>high</strong> (66+)<br>
+        Stored on: <strong>users.intent_score, users.intent_level</strong>
+      </div>
+    </div>
+
+    <div class="score-card">
+      <h4>Lead Score</h4>
+      <div class="score-file">lib/scoring/leadScore.ts</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Qualifies a student as a lead for a specific school. Run post-event via <code style="color:var(--accent)">/api/leads/compute</code>.</p>
+
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;">Declarative 50%</div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Field/branch overlap with school</span><span>~30 pts</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:30%;background:var(--c-school)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Education level match</span><span>~20 pts</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:20%;background:var(--c-school)"></div></div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;margin-top:12px;text-transform:uppercase;">Behavioral 50%</div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Appointment booked</span><span>~20 pts</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:20%;background:var(--c-lead)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Swiped right on school</span><span>~15 pts</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:15%;background:var(--c-lead)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Visited school stand</span><span>~10 pts</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:10%;background:var(--c-behavior)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Attended school conference</span><span>~5 pts</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:5%;background:var(--c-event)"></div></div>
+      </div>
+
+      <div class="score-output">
+        Output: <strong>score_value 0–100</strong><br>
+        Tiers: <strong>exploring</strong> · <strong>comparing</strong> · <strong>deciding</strong><br>
+        Stored on: <strong>leads.score_value, leads.score_tier</strong>
+      </div>
+    </div>
+
+    <div class="score-card">
+      <h4>School Recommendation</h4>
+      <div class="score-file">lib/scoring/schoolRecommendation.ts</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Used by the phygital score booth. Takes academic grade (0–20) + student profile and returns top-3 schools.</p>
+
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Domain relevance</span><span>high weight</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:40%;background:var(--c-school)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Academic feasibility (grade vs. bac counts)</span><span>medium</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:30%;background:var(--accent)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Specialization alignment</span><span>medium</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:20%;background:var(--c-event)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Student declared preferences</span><span>low</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:10%;background:var(--c-user)"></div></div>
+      </div>
+
+      <div class="score-output">
+        Output: <strong>top-3 SchoolRow[]</strong> with <strong>fit_score 0–100</strong><br>
+        Tiers: <strong>strong</strong> · <strong>moderate</strong> · <strong>exploratory</strong><br>
+        Called by: <strong>POST /api/booth/recommendations</strong>
+      </div>
+    </div>
+
+    <div class="score-card">
+      <h4>School Ranking (Discover)</h4>
+      <div class="score-file">lib/supabase/schoolRanking.ts</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Personalizes the school listing order for logged-in students in the Discover tab.</p>
+
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Field/branch overlap</span><span>60%</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:60%;background:var(--c-school)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Education level match</span><span>20%</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:20%;background:var(--c-user)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Region proximity</span><span>20%</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:20%;background:var(--c-event)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-label"><span>Behavioral boost (prior swipes)</span><span>bonus</span></div>
+        <div class="score-bar"><div class="score-bar-fill" style="width:15%;background:var(--c-behavior)"></div></div>
+      </div>
+
+      <div class="score-output">
+        Output: <strong>sorted SchoolRow[]</strong><br>
+        Used by: <strong>Discover page</strong> · client-side, no API<br>
+        Also mirrors: <strong>programRanking.ts</strong> for formations
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════ API ════════════ -->
+<div id="view-api" class="view">
+  <div class="page-header">
+    <h2>API Routes</h2>
+    <p>All 40+ Next.js route handlers in <code style="color:var(--accent)">app/api/</code></p>
+  </div>
+
+  <div class="api-group">
+    <h3>Authentication</h3>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/auth/register</span><span class="route-auth auth-public">public</span><span class="route-desc">Email/password signup → insert users</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/auth/login</span><span class="route-auth auth-public">public</span><span class="route-desc">Email/password login → JWT session</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/auth/logout</span><span class="route-auth auth-user">user</span><span class="route-desc">Invalidate session cookie</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/auth/sso</span><span class="route-auth auth-public">public</span><span class="route-desc">OAuth provider redirect</span></div>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/auth/callback</span><span class="route-auth auth-public">public</span><span class="route-desc">OAuth return handler</span></div>
+  </div>
+
+  <div class="api-group">
+    <h3>Events (Student)</h3>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/events/[id]/scan-qr</span><span class="route-auth auth-user">user</span><span class="route-desc">Insert scan record → update intent score</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/events/[id]/register-student</span><span class="route-auth auth-user">user</span><span class="route-desc">Enroll student in event</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/events/[id]/register-exhibitor</span><span class="route-auth auth-exhibitor">exhibitor</span><span class="route-desc">Register school for event</span></div>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/events/[id]/programs</span><span class="route-auth auth-user">user</span><span class="route-desc">Fetch sessions / schedule</span></div>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/scans</span><span class="route-auth auth-user">user</span><span class="route-desc">Own scan history</span></div>
+  </div>
+
+  <div class="api-group">
+    <h3>Lead Management (Post-Fair)</h3>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/leads/compute</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Run computeLeadScore() for all students × schools</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/leads/export-csv</span><span class="route-auth auth-exhibitor">exhibitor</span><span class="route-desc">Export aggregate lead CSV</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/leads/[leadId]/export</span><span class="route-auth auth-exhibitor">exhibitor</span><span class="route-desc">Mark single lead exported</span></div>
+  </div>
+
+  <div class="api-group">
+    <h3>Booth / Phygital</h3>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/booth/capture-orientation</span><span class="route-auth auth-user">booth op</span><span class="route-desc">Insert booth_capture from staff tablet</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/booth/recommendations</span><span class="route-auth auth-public">public</span><span class="route-desc">Get top-3 schools from grade + profile</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/booth/register</span><span class="route-auth auth-public">public</span><span class="route-desc">Register booth operator account</span></div>
+  </div>
+
+  <div class="api-group">
+    <h3>Groups (Teacher)</h3>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/group/join</span><span class="route-auth auth-user">user</span><span class="route-desc">Join class group via invite token</span></div>
+  </div>
+
+  <div class="api-group">
+    <h3>Webhooks</h3>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/webhooks/eventmaker</span><span class="route-auth auth-public">signed secret</span><span class="route-desc">Inbound pre-registration from EventMaker</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/mock/eventmaker</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Simulate EventMaker webhook for testing</span></div>
+  </div>
+
+  <div class="api-group">
+    <h3>Admin — Events</h3>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/admin/events</span><span class="route-auth auth-admin">admin</span><span class="route-desc">List all events</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/admin/events</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Create event</span></div>
+    <div class="api-route"><span class="method patch">PATCH</span><span class="route-path">/api/admin/events/[id]</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Update event</span></div>
+    <div class="api-route"><span class="method delete_">DELETE</span><span class="route-path">/api/admin/events/[id]</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Delete event</span></div>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/admin/events/[id]/exhibitors</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Exhibitors registered for event</span></div>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/admin/events/[id]/students</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Students enrolled in event</span></div>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/admin/events/[id]/programs</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Event program management</span></div>
+  </div>
+
+  <div class="api-group">
+    <h3>Admin — Platform</h3>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/admin/schools</span><span class="route-auth auth-admin">admin</span><span class="route-desc">School directory</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/admin/schools</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Create school</span></div>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/admin/users</span><span class="route-auth auth-admin">admin</span><span class="route-desc">User account list</span></div>
+    <div class="api-route"><span class="method get">GET</span><span class="route-path">/api/admin/stats</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Platform analytics aggregates</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/admin/settings</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Global config</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/admin/setup</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Initial deployment setup</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/admin/seed</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Database seeding</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/admin/fix-metadata</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Data repair utilities</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/admin/setup-auth</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Auth configuration</span></div>
+    <div class="api-route"><span class="method post">POST</span><span class="route-path">/api/seed-test</span><span class="route-auth auth-admin">admin</span><span class="route-desc">Generate test data</span></div>
+  </div>
+
+</div>
+
+</main>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

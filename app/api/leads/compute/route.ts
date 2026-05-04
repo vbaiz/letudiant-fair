@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   // Fetch behavioural signals
   const { data: scans } = await supabase
-    .from('scans').select('channel, stand_id, session_id, dwell_estimate')
+    .from('scans').select('channel, stand_id, dwell_seconds')
     .eq('user_id', studentId).eq('event_id', eventId)
 
   const { data: match } = await supabase
@@ -38,8 +38,8 @@ export async function POST(request: Request) {
   }
 
   const standsVisited = scans?.filter(s => s.channel === 'stand').map(s => s.stand_id ?? '') ?? []
-  const confsAttended = scans?.filter(s => s.channel === 'conference').map(s => s.session_id ?? '') ?? []
-  const totalDwell = scans?.reduce((sum, s) => sum + (s.dwell_estimate ?? 0), 0) ?? 0
+  // dwell_seconds: null entries (last scan) default to 1200s (20 min cap)
+  const totalDwellSeconds = scans?.reduce((sum, s) => sum + (s.dwell_seconds ?? 1200), 0) ?? 0
 
   // Declarative score (0–1)
   const levelMatch = school.target_levels?.includes(student.education_level ?? '') ? 1 : 0
@@ -53,10 +53,9 @@ export async function POST(request: Request) {
 
   // Behavioural score (0–1)
   const visitedStand = standsVisited.length > 0 ? 1 : 0
-  const attendedConf = confsAttended.length > 0 ? 1 : 0
   const swipedRight = match?.student_swipe === 'right' ? 1 : 0
-  const dwellScore = Math.min(totalDwell / 1800, 1) // 30min cap
-  const behaviouralScore = 0.25 * visitedStand + 0.25 * attendedConf + 0.30 * swipedRight + 0.20 * dwellScore
+  const dwellScore = Math.min(totalDwellSeconds / 1800, 1) // 30min cap
+  const behaviouralScore = 0.35 * visitedStand + 0.35 * swipedRight + 0.30 * dwellScore
 
   const rawScore = 0.5 * declarativeScore + 0.5 * behaviouralScore
   const scoreValue = Math.round(rawScore * 100)
@@ -71,9 +70,6 @@ export async function POST(request: Request) {
     education_branches: student.education_branches ?? [],
     study_wishes: student.study_wishes ?? [],
     stands_visited: standsVisited,
-    confs_attended: confsAttended,
-    dwell_minutes: Math.round(totalDwell / 60),
-    swipe_result: match?.student_swipe === 'right',
     score_value: scoreValue,
     score_tier: scoreTier as 'exploring' | 'comparing' | 'deciding',
     score_computed_at: new Date().toISOString(),

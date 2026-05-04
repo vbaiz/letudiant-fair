@@ -11,16 +11,16 @@ export async function POST(request: Request) {
 
     // Create 10 salons
     const salons = [
-      { name: 'Salon Étudiant Paris 2026', city: 'Paris', venue: 'Palais Omni Sports', address: '8 Boulevard de Bercy, 75012 Paris', event_date: '2026-03-15', description: 'Le plus grand salon des formations', is_virtual: false, is_active: true },
-      { name: 'Forum Études Toulouse', city: 'Toulouse', venue: 'Parc des Expositions', address: 'Avenue de Grande-Bretagne, 31300 Toulouse', event_date: '2026-03-22', description: 'Salon sud-ouest', is_virtual: false, is_active: true },
-      { name: 'Salon Education Lyon', city: 'Lyon', venue: 'Cité Confluence', address: '81 Quai Saint-Antoine, 69002 Lyon', event_date: '2026-03-29', description: 'Salon rhône-alpes', is_virtual: false, is_active: true },
-      { name: 'Études Marseille 2026', city: 'Marseille', venue: 'Palais Congrès', address: 'Rue Neuve, 13008 Marseille', event_date: '2026-04-05', description: 'Salon méditerranée', is_virtual: false, is_active: true },
-      { name: 'Salon Orientation Lille', city: 'Lille', venue: 'Parc Expo', address: '1 Boulevard Université, 59650 Villeneuve', event_date: '2026-04-12', description: 'Salon nord', is_virtual: false, is_active: true },
-      { name: 'Forum Carrières Bordeaux', city: 'Bordeaux', venue: 'Palais Beaumont', address: 'Allée Sermet, 33000 Bordeaux', event_date: '2026-04-19', description: 'Salon aquitaine', is_virtual: false, is_active: true },
-      { name: 'Salon Etudes Strasbourg', city: 'Strasbourg', venue: 'Wacken Centre', address: '5 Avenue Marne, 67000 Strasbourg', event_date: '2026-04-26', description: 'Salon alsace', is_virtual: false, is_active: true },
-      { name: 'Salon Education Nantes', city: 'Nantes', venue: 'Cité Congrès', address: '5 Rue Valmy, 44000 Nantes', event_date: '2026-05-03', description: 'Salon ouest', is_virtual: false, is_active: true },
-      { name: 'Forum Orientation Montpellier', city: 'Montpellier', venue: 'Parc Expo', address: '2870 Avenue Mendès, 34000 Montpellier', event_date: '2026-05-10', description: 'Salon languedoc', is_virtual: false, is_active: true },
-      { name: 'Salon Formations Nice', city: 'Nice', venue: 'Acropolis', address: '1 Esplanade Kennedy, 06000 Nice', event_date: '2026-05-17', description: 'Salon azur', is_virtual: false, is_active: true },
+      { name: 'Salon Étudiant Paris 2026', city: 'Paris', venue: 'Palais Omni Sports', address: '8 Boulevard de Bercy, 75012 Paris', event_date: '2026-03-15', description: 'Le plus grand salon des formations', is_active: true },
+      { name: 'Forum Études Toulouse', city: 'Toulouse', venue: 'Parc des Expositions', address: 'Avenue de Grande-Bretagne, 31300 Toulouse', event_date: '2026-03-22', description: 'Salon sud-ouest', is_active: true },
+      { name: 'Salon Education Lyon', city: 'Lyon', venue: 'Cité Confluence', address: '81 Quai Saint-Antoine, 69002 Lyon', event_date: '2026-03-29', description: 'Salon rhône-alpes', is_active: true },
+      { name: 'Études Marseille 2026', city: 'Marseille', venue: 'Palais Congrès', address: 'Rue Neuve, 13008 Marseille', event_date: '2026-04-05', description: 'Salon méditerranée', is_active: true },
+      { name: 'Salon Orientation Lille', city: 'Lille', venue: 'Parc Expo', address: '1 Boulevard Université, 59650 Villeneuve', event_date: '2026-04-12', description: 'Salon nord', is_active: true },
+      { name: 'Forum Carrières Bordeaux', city: 'Bordeaux', venue: 'Palais Beaumont', address: 'Allée Sermet, 33000 Bordeaux', event_date: '2026-04-19', description: 'Salon aquitaine', is_active: true },
+      { name: 'Salon Etudes Strasbourg', city: 'Strasbourg', venue: 'Wacken Centre', address: '5 Avenue Marne, 67000 Strasbourg', event_date: '2026-04-26', description: 'Salon alsace', is_active: true },
+      { name: 'Salon Education Nantes', city: 'Nantes', venue: 'Cité Congrès', address: '5 Rue Valmy, 44000 Nantes', event_date: '2026-05-03', description: 'Salon ouest', is_active: true },
+      { name: 'Forum Orientation Montpellier', city: 'Montpellier', venue: 'Parc Expo', address: '2870 Avenue Mendès, 34000 Montpellier', event_date: '2026-05-10', description: 'Salon languedoc', is_active: true },
+      { name: 'Salon Formations Nice', city: 'Nice', venue: 'Acropolis', address: '1 Esplanade Kennedy, 06000 Nice', event_date: '2026-05-17', description: 'Salon azur', is_active: true },
     ]
 
     const { data: newSalons, error: salonErr } = await db.from('events').insert(salons).select('id')

@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Build CSV
-  const headers = ['Nom', 'Email', 'Niveau', 'Filières', 'Code Postal', 'Score', 'Segment', 'Stands Visités', 'Temps (min)', 'Exporté le']
+  const headers = ['Nom', 'Email', 'Niveau', 'Filières', 'Code Postal', 'Score', 'Segment', 'Stands Visités', 'Exporté le']
   const rows = (leads ?? []).map((l: Record<string, unknown>) => {
     const u = l.users as Record<string, unknown> | null
     return [
@@ -37,7 +37,6 @@ export async function GET(request: Request) {
       l.score_value,
       l.score_tier,
       Array.isArray(l.stands_visited) ? (l.stands_visited as string[]).length : 0,
-      l.dwell_minutes,
       new Date().toLocaleDateString('fr-FR'),
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
   })

@@ -61,7 +61,6 @@ create table if not exists public.events (
   venue_map text,
   address text,
   description text,
-  is_virtual boolean default false,
   created_at timestamptz default now()
 );
 
@@ -109,8 +108,6 @@ create table if not exists public.stands (
   id uuid primary key default uuid_generate_v4(),
   event_id uuid not null references public.events(id) on delete cascade,
   school_id uuid not null references public.schools(id) on delete cascade,
-  location_x integer default 0,
-  location_y integer default 0,
   category text not null,
   created_at timestamptz default now()
 );
@@ -136,7 +133,7 @@ create table if not exists public.scans (
   stand_id uuid references public.stands(id),
   session_id uuid references public.sessions(id),
   channel scan_channel not null,
-  dwell_estimate integer,
+  dwell_seconds integer,
   created_at timestamptz default now()
 );
 
@@ -150,9 +147,6 @@ create table if not exists public.leads (
   education_branches text[] default '{}',
   study_wishes text[] default '{}',
   stands_visited text[] default '{}',
-  confs_attended text[] default '{}',
-  dwell_minutes integer default 0,
-  swipe_result boolean default false,
   score_value integer default 0,
   score_tier orientation_stage default 'exploring',
   score_computed_at timestamptz default now(),
@@ -268,16 +262,16 @@ insert into public.formations (school_id, name, duration, level, fields, admissi
 on conflict do nothing;
 
 -- Stands for Paris event
-insert into public.stands (event_id, school_id, location_x, location_y, category) values
-  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000001', 100, 150, 'Sciences Po & IEP'),
-  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000002', 200, 150, 'Écoles de Commerce'),
-  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000003', 300, 150, 'Écoles d''Ingénieurs'),
-  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000004', 400, 150, 'Écoles de Commerce'),
-  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000005', 500, 150, 'Universités'),
-  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000006', 100, 300, 'Écoles Spécialisées'),
-  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000007', 200, 300, 'IUT & BTS'),
-  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000009', 300, 300, 'Grandes Écoles'),
-  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000010', 400, 300, 'Écoles de Commerce')
+insert into public.stands (event_id, school_id, category) values
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000001', 'Sciences Po & IEP'),
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000002', 'Écoles de Commerce'),
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000003', 'Écoles d''Ingénieurs'),
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000004', 'Écoles de Commerce'),
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000005', 'Universités'),
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000006', 'Écoles Spécialisées'),
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000007', 'IUT & BTS'),
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000009', 'Grandes Écoles'),
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'b1b2c3d4-0000-0000-0000-000000000010', 'Écoles de Commerce')
 on conflict do nothing;
 
 -- Sessions (conferences) for Paris event
@@ -290,12 +284,12 @@ insert into public.sessions (event_id, title, speaker_school_id, room, start_tim
 on conflict do nothing;
 
 -- Stands for Lyon event
-insert into public.stands (event_id, school_id, location_x, location_y, category) values
-  ('a1b2c3d4-0000-0000-0000-000000000002', 'b1b2c3d4-0000-0000-0000-000000000012', 100, 150, 'Écoles de Commerce'),
-  ('a1b2c3d4-0000-0000-0000-000000000002', 'b1b2c3d4-0000-0000-0000-000000000011', 200, 150, 'Universités')
+insert into public.stands (event_id, school_id, category) values
+  ('a1b2c3d4-0000-0000-0000-000000000002', 'b1b2c3d4-0000-0000-0000-000000000012', 'Écoles de Commerce'),
+  ('a1b2c3d4-0000-0000-0000-000000000002', 'b1b2c3d4-0000-0000-0000-000000000011', 'Universités')
 on conflict do nothing;
 
 -- Stands for Bordeaux event
-insert into public.stands (event_id, school_id, location_x, location_y, category) values
-  ('a1b2c3d4-0000-0000-0000-000000000003', 'b1b2c3d4-0000-0000-0000-000000000011', 100, 150, 'Universités')
+insert into public.stands (event_id, school_id, category) values
+  ('a1b2c3d4-0000-0000-0000-000000000003', 'b1b2c3d4-0000-0000-0000-000000000011', 'Universités')
 on conflict do nothing;

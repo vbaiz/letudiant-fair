@@ -11,40 +11,80 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { eventId, standId, sessionId, channel, dwellEstimate } = body
+  const { eventId, standId, sessionId, channel } = body
 
-  // ── Exit scan: compute actual dwell from entry scan ──────────────────────────
-  let computedDwell: number | null = dwellEstimate ?? null
-
-  if (channel === 'exit') {
-    const { data: entryScan } = await supabase
-      .from('scans')
-      .select('created_at')
-      .eq('user_id', user.id)
-      .eq('event_id', eventId)
-      .eq('channel', 'entry')
-      .order('created_at', { ascending: true })
-      .limit(1)
+  // ── Resolve school_id from the scanned id ──
+  // The QR can carry either a stand UUID or a school UUID. The exhibitor
+  // dashboard generates QRs with schoolId, so we try to look that up and
+  // also keep a denormalized school_id on the scan row for the dashboard.
+  let resolvedSchoolId: string | null = null
+  let resolvedStandId: string | null = null
+  if (standId) {
+    // Try as a school UUID first (exhibitor dashboard payload)
+    const { data: school } = await supabase
+      .from('schools')
+      .select('id')
+      .eq('id', standId)
       .maybeSingle()
-
-    if (entryScan) {
-      const entryMs = new Date(entryScan.created_at).getTime()
-      const exitMs  = Date.now()
-      computedDwell = Math.round((exitMs - entryMs) / 60_000) // minutes
+    if (school) {
+      resolvedSchoolId = school.id
+      // Find the matching stand for this school+event (if any)
+      const { data: stand } = await supabase
+        .from('stands')
+        .select('id')
+        .eq('school_id', school.id)
+        .eq('event_id', eventId)
+        .maybeSingle()
+      resolvedStandId = stand?.id ?? null
+    } else {
+      // Fallback: treat as stand UUID
+      const { data: stand } = await supabase
+        .from('stands')
+        .select('id, school_id')
+        .eq('id', standId)
+        .maybeSingle()
+      if (stand) {
+        resolvedStandId = stand.id
+        resolvedSchoolId = stand.school_id
+      }
     }
   }
 
-  // ── Insert scan ──────────────────────────────────────────────────────────────
+  // ── Compute dwell for the previous scan (time between consecutive scans, capped at 20 min) ──
+  const { data: prevScan } = await supabase
+    .from('scans')
+    .select('id, created_at')
+    .eq('user_id', user.id)
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (prevScan) {
+    const prevMs = new Date(prevScan.created_at).getTime()
+    const dwellSeconds = Math.min(Math.round((Date.now() - prevMs) / 1000), 1200)
+    await supabase
+      .from('scans')
+      .update({ dwell_seconds: dwellSeconds })
+      .eq('id', prevScan.id)
+      .catch((err: Error) => console.error('[scans] dwell update failed:', err))
+  }
+
+  // ── Insert new scan (dwell_seconds filled when next scan arrives) ────────────
+  const insertPayload: Record<string, unknown> = {
+    user_id:      user.id,
+    event_id:     eventId,
+    stand_id:     resolvedStandId,
+    session_id:   sessionId ?? null,
+    channel,
+    dwell_seconds: null,
+  }
+  // Add school_id column denormalized (used by exhibitor dashboard queries)
+  if (resolvedSchoolId) insertPayload.school_id = resolvedSchoolId
+
   const { data, error } = await supabase
     .from('scans')
-    .insert({
-      user_id:       user.id,
-      event_id:      eventId,
-      stand_id:      standId   ?? null,
-      session_id:    sessionId ?? null,
-      channel,
-      dwell_estimate: computedDwell,
-    })
+    .insert(insertPayload)
     .select('id')
     .single()
 
@@ -63,15 +103,6 @@ export async function POST(request: Request) {
       .catch((err: Error) => console.error('[scans] appointment confirm failed:', err))
   }
 
-  // ── Persist dwell on user profile after exit scan ────────────────────────────
-  if (channel === 'exit' && computedDwell !== null) {
-    await supabase
-      .from('users')
-      .update({ last_dwell_minutes: computedDwell })
-      .eq('id', user.id)
-      .catch(err => console.error('[scans] dwell update failed:', err))
-  }
-
   // ── Refresh intent score after stand / conference / exit scans ───────────────
   if (channel === 'stand' || channel === 'conference' || channel === 'exit') {
     refreshIntentScoreServer(user.id, supabase).catch(err =>
@@ -79,7 +110,7 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.json({ scanId: data?.id ?? '', dwellMinutes: computedDwell })
+  return NextResponse.json({ scanId: data?.id ?? '' })
 }
 
 // ─── Server-side intent score refresh ────────────────────────────────────────

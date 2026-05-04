@@ -74,7 +74,6 @@ export default function SalonsPage() {
           name: formData.name,
           city: formData.city,
           event_date: new Date(formData.event_date).toISOString(),
-          is_virtual: false,
           is_active: false,
         }),
       })
