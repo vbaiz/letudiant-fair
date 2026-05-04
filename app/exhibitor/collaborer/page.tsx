@@ -180,31 +180,40 @@ export default function CollaborerPage() {
       }
 
       const supabase = getSupabase();
+
+      const insertData = {
+        school_id: schoolId,
+        titre: formData.titre,
+        duree_value: formData.duree_value,
+        duree_unit: formData.duree_unit,
+        niveau: formData.niveau,
+        modalite: formData.modalite,
+        admission: formData.admission,
+        cout: formData.cout,
+        cout_devise: formData.cout_devise,
+        description: formData.description,
+        couleur: formData.couleur,
+        image_url: formData.image_url,
+        status: 'published',
+        view_count: 0,
+        save_count: 0,
+      };
+
+      console.log('Inserting swipe data:', insertData);
+
       const { data, error } = await supabase
         .from('school_swipes')
-        .insert([
-          {
-            school_id: schoolId,
-            titre: formData.titre,
-            duree_value: formData.duree_value,
-            duree_unit: formData.duree_unit,
-            niveau: formData.niveau,
-            modalite: formData.modalite,
-            admission: formData.admission,
-            cout: formData.cout,
-            cout_devise: formData.cout_devise,
-            description: formData.description,
-            couleur: formData.couleur,
-            image_url: formData.image_url,
-            status: 'published',
-            view_count: 0,
-            save_count: 0,
-          }
-        ])
+        .insert([insertData])
         .select()
         .single();
 
-      if (error) throw error;
+      console.log('Insert response - data:', data);
+      console.log('Insert response - error:', error);
+
+      if (error) {
+        console.error('Supabase insert error details:', error);
+        throw new Error(`Supabase error: ${error.message || JSON.stringify(error)}`);
+      }
 
       if (data) {
         setError(null);
