@@ -1194,3 +1194,84 @@ export async function getSavedArticlesCount(userId: string): Promise<number> {
 
   return error ? 0 : (count || 0)
 }
+
+// ─── School Swipes ────────────────────────────────────────────────────────────
+
+/**
+ * Get all published school swipes
+ */
+export async function getAllPublishedSwipes() {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('school_swipes')
+    .select('*')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+
+  if (error) {
+    console.error('Failed to fetch swipes:', error)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Save a swipe to user's wishlist
+ */
+export async function saveSwipeToWishlist(userId: string, swipeId: string): Promise<void> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('user_saved_swipes')
+    .insert([{ user_id: userId, swipe_id: swipeId }])
+
+  if (error) {
+    if (error.message.includes('duplicate') || error.code === '23505') {
+      return // Already saved, ignore
+    }
+    throw new Error(`Failed to save swipe: ${error.message}`)
+  }
+}
+
+/**
+ * Get all saved swipes for a user
+ */
+export async function getSavedSwipes(userId: string) {
+  const supabase = getSupabase()
+  const { data: savedRefs, error: refError } = await supabase
+    .from('user_saved_swipes')
+    .select('swipe_id')
+    .eq('user_id', userId)
+
+  if (refError) {
+    console.error('Failed to fetch saved swipe refs:', refError)
+    return []
+  }
+
+  if (!savedRefs?.length) return []
+
+  const swipeIds = savedRefs.map(r => r.swipe_id)
+  const { data: swipes, error } = await supabase
+    .from('school_swipes')
+    .select('*')
+    .in('id', swipeIds)
+
+  if (error) {
+    console.error('Failed to fetch saved swipes:', error)
+    return []
+  }
+  return swipes || []
+}
+
+/**
+ * Delete a swipe from user's wishlist
+ */
+export async function deleteSwipeFromWishlist(userId: string, swipeId: string): Promise<void> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('user_saved_swipes')
+    .delete()
+    .eq('user_id', userId)
+    .eq('swipe_id', swipeId)
+
+  if (error) throw new Error(`Failed to delete saved swipe: ${error.message}`)
+}

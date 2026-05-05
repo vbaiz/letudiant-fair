@@ -7,10 +7,10 @@ import Link from 'next/link';
 import Tag from '@/components/ui/Tag';
 import Button from '@/components/ui/Button';
 import SectionLabel from '@/components/ui/SectionLabel';
-import { getAppointmentsForStudent, getSavedFormationsWithDates, getSavedReels, deleteReelFromWishlist, getDossiersForUser, createDossier, deleteDossier, updateDossierStatus, updateDossierOutcome, uploadDocument, deleteDocument, getDocumentDownloadUrl, getSchools, getSavedArticles, deleteArticleFromWishlist, type DossierWithSchool, type DocumentType, type DossierStatus, type ApplicationOutcome, type ApplicationDocumentRow } from '@/lib/supabase/database';
+import { getAppointmentsForStudent, getSavedFormationsWithDates, getSavedReels, deleteReelFromWishlist, getDossiersForUser, createDossier, deleteDossier, updateDossierStatus, updateDossierOutcome, uploadDocument, deleteDocument, getDocumentDownloadUrl, getSchools, getSavedArticles, deleteArticleFromWishlist, getSavedSwipes, deleteSwipeFromWishlist, type DossierWithSchool, type DocumentType, type DossierStatus, type ApplicationOutcome, type ApplicationDocumentRow } from '@/lib/supabase/database';
 import { useAuth } from '@/hooks/useAuth';
 import { getSupabase } from '@/lib/supabase/client';
-import type { AppointmentRow, FormationRow, SchoolReelRow, ArticleRow } from '@/lib/supabase/types';
+import type { AppointmentRow, FormationRow, SchoolReelRow, ArticleRow, SchoolSwipeForDisplay } from '@/lib/supabase/types';
 import { generateICSContent, generateGoogleCalendarUrl, downloadICS } from '@/lib/calendar';
 
 // ─── User-specific data types ────────────────────────────────────────────────
@@ -1248,6 +1248,7 @@ export default function SavedPage() {
   const [dossiers, setDossiers] = useState<DossierWithSchool[]>([]);
   const [showAddDossierModal, setShowAddDossierModal] = useState(false);
   const [savedFormations, setSavedFormations] = useState<Array<FormationRow & { schoolId: string; schoolName: string; schoolCity: string; schoolType: string }>>([]);
+  const [savedSwipes, setSavedSwipes] = useState<SchoolSwipeForDisplay[]>([]);
   const [savedReels, setSavedReels] = useState<(SchoolReelRow & { saved_at: string })[]>([]);
   const [reelsLoading, setReelsLoading] = useState(true);
   const [savedArticles, setSavedArticles] = useState<(ArticleRow & { saved_at: string })[]>([]);
@@ -1402,13 +1403,20 @@ export default function SavedPage() {
     const wishlist = (userData?.wishlist as string[]) ?? [];
     console.log('SavedPage: User wishlist:', wishlist, 'length:', wishlist.length);
 
+    // Load saved formations and swipes
     if (wishlist.length > 0) {
-      // Use new function that gets formations WITH save dates
+      // Load formations
       const allFormations = await getSavedFormationsWithDates(userId);
       setSavedFormations(allFormations);
       console.log('SavedPage: Loaded', allFormations.length, 'formations from wishlist with dates:', allFormations);
+
+      // Load saved swipes
+      const swipes = await getSavedSwipes(userId);
+      setSavedSwipes(swipes);
+      console.log('SavedPage: Loaded', swipes.length, 'saved swipes');
     } else {
       setSavedFormations([]);
+      setSavedSwipes([]);
       console.log('SavedPage: Wishlist is empty');
     }
   };
@@ -1525,35 +1533,71 @@ export default function SavedPage() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [user?.id]);
 
-  // Get unique cities from saved formations
-  const uniqueCities = Array.from(new Set(savedFormations.map((f) => f.schoolCity)))
+  // Get unique cities from both formations and swipes
+  const uniqueCities = Array.from(
+    new Set([
+      ...savedFormations.map((f) => f.schoolCity),
+      ...savedSwipes.map((s) => s.school_name || 'École'),
+    ])
+  )
     .filter((city) => city)
     .sort();
 
-  // Filter and sort swipes
-  const filteredFormations = savedFormations
-    .filter((f) => {
-      const matchCity = !swipeFilterCity || f.schoolCity === swipeFilterCity;
-      const matchProgram = !swipeFilterProgram || f.name.toLowerCase().includes(swipeFilterProgram.toLowerCase());
+  // Filter and sort formations and swipes together
+  const filteredPrograms = [
+    // Filter formations
+    ...savedFormations
+      .filter((f) => {
+        const matchCity = !swipeFilterCity || f.schoolCity === swipeFilterCity;
+        const matchProgram = !swipeFilterProgram || f.name.toLowerCase().includes(swipeFilterProgram.toLowerCase());
 
-      // Filter by date range
-      let matchDate = true;
-      if (swipeFilterDateRange !== 'all' && (f as any).saved_at) {
-        const { start, end } = getDateRange();
-        if (start && end) {
-          const savedDate = new Date((f as any).saved_at);
-          matchDate = savedDate >= start && savedDate <= end;
+        // Filter by date range
+        let matchDate = true;
+        if (swipeFilterDateRange !== 'all' && (f as any).saved_at) {
+          const { start, end } = getDateRange();
+          if (start && end) {
+            const savedDate = new Date((f as any).saved_at);
+            matchDate = savedDate >= start && savedDate <= end;
+          }
         }
-      }
 
-      return matchCity && matchProgram && matchDate;
-    })
-    .sort((a, b) => {
-      if (swipeFilterSort === 'none') return 0; // Keep insertion order
-      if (swipeFilterSort === 'asc') return a.name.localeCompare(b.name); // A→Z
-      if (swipeFilterSort === 'desc') return b.name.localeCompare(a.name); // Z→A
-      return 0;
-    });
+        return matchCity && matchProgram && matchDate;
+      })
+      .sort((a, b) => {
+        if (swipeFilterSort === 'none') return 0;
+        if (swipeFilterSort === 'asc') return a.name.localeCompare(b.name);
+        if (swipeFilterSort === 'desc') return b.name.localeCompare(a.name);
+        return 0;
+      })
+      .map((f) => ({ ...f, __type: 'formation' as const })),
+    // Filter swipes
+    ...savedSwipes
+      .filter((s) => {
+        const matchCity = !swipeFilterCity || s.school_name === swipeFilterCity;
+        const matchProgram = !swipeFilterProgram || s.titre.toLowerCase().includes(swipeFilterProgram.toLowerCase());
+
+        // Filter by date range
+        let matchDate = true;
+        if (swipeFilterDateRange !== 'all' && s.saved_at) {
+          const { start, end } = getDateRange();
+          if (start && end) {
+            const savedDate = new Date(s.saved_at);
+            matchDate = savedDate >= start && savedDate <= end;
+          }
+        }
+
+        return matchCity && matchProgram && matchDate;
+      })
+      .sort((a, b) => {
+        if (swipeFilterSort === 'none') return 0;
+        if (swipeFilterSort === 'asc') return a.titre.localeCompare(b.titre);
+        if (swipeFilterSort === 'desc') return b.titre.localeCompare(a.titre);
+        return 0;
+      })
+      .map((s) => ({ ...s, __type: 'swipe' as const })),
+  ];
+
+  const filteredFormations = filteredPrograms.filter((p) => p.__type === 'formation');
 
   // Toggle A→Z / Z→A sorting
   const handleToggleSortOrder = () => {
@@ -1577,42 +1621,56 @@ export default function SavedPage() {
   };
 
   const handleSelectAllSwipes = () => {
-    if (selectedSwipes.size === filteredFormations.length) {
+    if (selectedSwipes.size === filteredPrograms.length) {
       setSelectedSwipes(new Set());
     } else {
-      setSelectedSwipes(new Set(filteredFormations.map((f) => f.id)));
+      setSelectedSwipes(new Set(filteredPrograms.map((p) => p.id)));
     }
   };
 
   const handleDeleteSelectedSwipes = async () => {
     if (selectedSwipes.size === 0 || !user?.id) return;
 
-    const newWishlist = savedFormations
-      .filter((f) => !selectedSwipes.has(f.id))
-      .map((f) => f.id);
-
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (getSupabase() as any)
-        .from('users')
-        .update({ wishlist: newWishlist })
-        .eq('id', user.id);
+      // Separate formations and swipes to delete
+      const formationsToDelete = savedFormations.filter((f) => selectedSwipes.has(f.id));
+      const swipesToDelete = savedSwipes.filter((s) => selectedSwipes.has(s.id));
 
-      setSavedFormations(savedFormations.filter((f) => !selectedSwipes.has(f.id)));
+      // Delete formations from wishlist
+      if (formationsToDelete.length > 0) {
+        const newWishlist = savedFormations
+          .filter((f) => !selectedSwipes.has(f.id))
+          .map((f) => f.id);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (getSupabase() as any)
+          .from('users')
+          .update({ wishlist: newWishlist })
+          .eq('id', user.id);
+
+        setSavedFormations(savedFormations.filter((f) => !selectedSwipes.has(f.id)));
+      }
+
+      // Delete swipes from user_saved_swipes
+      for (const swipe of swipesToDelete) {
+        await deleteSwipeFromWishlist(user.id, swipe.id);
+      }
+
+      setSavedSwipes(savedSwipes.filter((s) => !selectedSwipes.has(s.id)));
       setSelectedSwipes(new Set());
       showToast(`✓ ${selectedSwipes.size} programme(s) supprimé(s)`);
     } catch (err) {
-      console.error('Error deleting formations:', err);
+      console.error('Error deleting programs:', err);
       showToast('❌ Erreur lors de la suppression');
     }
   };
 
-  const liensCount = savedFormations.length + savedLinks.length;
+  const liensCount = savedFormations.length + savedSwipes.length + savedLinks.length;
 
   // Log for debugging
   useEffect(() => {
-    console.log('SavedPage: Render - savedFormations:', savedFormations.length, 'savedLinks:', savedLinks.length, 'total liens:', liensCount);
-  }, [savedFormations, savedLinks, liensCount]);
+    console.log('SavedPage: Render - savedFormations:', savedFormations.length, 'savedSwipes:', savedSwipes.length, 'savedLinks:', savedLinks.length, 'total liens:', liensCount);
+  }, [savedFormations, savedSwipes, savedLinks, liensCount]);
 
   // Load saved reels
   useEffect(() => {
@@ -1964,10 +2022,10 @@ export default function SavedPage() {
               ))}
             </div>
 
-            {/* Swipe sub-tab: Formations */}
+            {/* Swipe sub-tab: Formations + Swipes */}
             {activeSubTab === 'swipe' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {savedFormations.length === 0 ? (
+                {savedFormations.length === 0 && savedSwipes.length === 0 ? (
                   <p style={{ color: 'var(--le-gray-500)', fontSize: 14, textAlign: 'center', padding: '32px 16px' }}>
                     Aucun programme enregistré. Swipez vers la droite (✓) sur les programmes dans le Swipe pour les ajouter à vos favoris.
                   </p>
@@ -2188,11 +2246,11 @@ export default function SavedPage() {
                       )}
 
                       {/* Selection Actions */}
-                      {savedFormations.length > 0 && (
+                      {filteredPrograms.length > 0 && (
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderTop: '1px solid var(--le-gray-200)', paddingTop: 12 }}>
                           <input
                             type="checkbox"
-                            checked={selectedSwipes.size === filteredFormations.length && filteredFormations.length > 0}
+                            checked={selectedSwipes.size === filteredPrograms.length && filteredPrograms.length > 0}
                             onChange={handleSelectAllSwipes}
                             style={{ cursor: 'pointer' }}
                             title="Sélectionner tout"
@@ -2239,37 +2297,65 @@ export default function SavedPage() {
                       )}
                     </div>
 
-                    {/* Formations List */}
+                    {/* Programs List (Formations + Swipes) */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-                      {filteredFormations.map((formation) => (
+                      {filteredPrograms.map((program) => (
                         <div
-                          key={formation.id}
+                          key={program.id}
                           style={{
                             display: 'flex',
                             gap: 12,
                             padding: 12,
                             background: '#fff',
                             borderRadius: 8,
-                            border: selectedSwipes.has(formation.id) ? '2px solid var(--le-red)' : '1px solid var(--le-gray-200)',
+                            border: selectedSwipes.has(program.id) ? '2px solid var(--le-red)' : '1px solid var(--le-gray-200)',
                             cursor: 'pointer',
                             transition: 'all 0.2s ease',
                           }}
-                          onClick={() => handleToggleSwipeSelection(formation.id)}
+                          onClick={() => handleToggleSwipeSelection(program.id)}
                         >
                           <input
                             type="checkbox"
-                            checked={selectedSwipes.has(formation.id)}
-                            onChange={() => handleToggleSwipeSelection(formation.id)}
+                            checked={selectedSwipes.has(program.id)}
+                            onChange={() => handleToggleSwipeSelection(program.id)}
                             onClick={(e) => e.stopPropagation()}
                             style={{ cursor: 'pointer', marginTop: 4 }}
                           />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <FormationCard
-                              formation={formation}
-                              schoolName={formation.schoolName}
-                              schoolCity={formation.schoolCity}
-                              schoolType={formation.schoolType}
-                            />
+                            {program.__type === 'formation' ? (
+                              <FormationCard
+                                formation={program}
+                                schoolName={program.schoolName}
+                                schoolCity={program.schoolCity}
+                                schoolType={program.schoolType}
+                              />
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>
+                                  {program.titre}
+                                </h4>
+                                <p style={{ margin: 0, fontSize: 13, color: 'var(--le-gray-600)' }}>
+                                  {program.school_name || 'École'}
+                                </p>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                                  {program.tags && program.tags.slice(0, 3).map((tag) => (
+                                    <span
+                                      key={tag}
+                                      style={{
+                                        background: 'var(--le-gray-100)',
+                                        color: 'var(--le-gray-700)',
+                                        padding: '2px 8px',
+                                        borderRadius: 4,
+                                        fontSize: 11,
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
