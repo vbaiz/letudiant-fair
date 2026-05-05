@@ -132,10 +132,10 @@ export default function StudentDetailPage() {
       {/* ─── Back nav ──────────────────────────────────────────────── */}
       <div className="max-w-5xl mx-auto px-8 pt-6">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push('/admin/dashboard')}
           className="text-xs tracking-wider uppercase text-neutral-500 hover:text-black transition"
         >
-          ← Retour
+          ← Retour au tableau de bord
         </button>
       </div>
 

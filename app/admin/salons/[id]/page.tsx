@@ -603,6 +603,31 @@ export default function SalonDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Floating scan button */}
+      <a
+        href={`/fair/${eventId}/scan`}
+        style={{
+          position: 'fixed',
+          bottom: 80,
+          right: 20,
+          background: C.tomate,
+          color: '#fff',
+          padding: '14px 20px',
+          borderRadius: 30,
+          textDecoration: 'none',
+          fontWeight: 700,
+          fontSize: 14,
+          boxShadow: '0 4px 20px rgba(236,31,39,0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          zIndex: 40,
+        }}
+      >
+        <span style={{ fontSize: 18 }}>📷</span>
+        Scanner un stand
+      </a>
     </div>
   )
 }
