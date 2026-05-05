@@ -133,13 +133,33 @@ export default function CollaborerPage() {
           return;
         }
 
-        // Use user_id as school_id (simple approach for exhibitors)
-        const schoolIdToUse = user.id;
-        console.log('Using school_id:', schoolIdToUse);
+        // Fetch user profile to get school_id
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('school_id')
+          .eq('id', user.id)
+          .single();
 
+        if (profileError) {
+          console.error('❌ Error fetching user profile:', profileError);
+          setError('Erreur lors du chargement de votre profil');
+          setLoading(false);
+          return;
+        }
+
+        const schoolIdToUse = userProfile?.school_id;
+
+        if (!schoolIdToUse) {
+          console.warn('⚠️ No school_id in user profile!');
+          setError('Impossible de créer du contenu sans école associée. Veuillez mettre à jour votre profil.');
+          setLoading(false);
+          return;
+        }
+
+        console.log('✅ Using school_id:', schoolIdToUse);
         setSchoolId(schoolIdToUse);
 
-        // Fetch swipes for this user
+        // Fetch swipes for this school
         const { data: swipesData, error: swipesError } = await supabase
           .from('school_swipes')
           .select('*')
